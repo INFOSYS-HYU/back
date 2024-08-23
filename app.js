@@ -283,12 +283,12 @@ app.delete('/api/admin/calendar/post/:id', (req, res) => {
     });
 });
 
-// 지환: 갤러리 게시물 추가 엔드포인트
+// 지환: 갤러리 게시물 추가
 app.post('/api/admin/gallery/post', async (req, res) => {
-    const { title, upload_date, content, image_url } = req.body;
+    const { title, upload_date, content, thumbnail_url, image_urls } = req.body;
 
     // 데이터 유효성 검사
-    if (!title || !upload_date || !content || !Array.isArray(image_url)) {
+    if (!title || !upload_date || !content || !thumbnail_url || !Array.isArray(image_urls)) {
         return res.status(400).json({ message: '필수 데이터가 부족하거나 잘못된 형식입니다.' });
     }
 
@@ -296,39 +296,52 @@ app.post('/api/admin/gallery/post', async (req, res) => {
         // 트랜잭션 시작
         await pool.query('BEGIN');
 
-        // 게시물 데이터 삽입
-        const insertPostQuery = 'INSERT INTO gallery_posts (title, upload_date, content) VALUES ($1, $2, $3) RETURNING id';
-        const result = await pool.query(insertPostQuery, [title, upload_date, content]);
-        const postId = result.rows[0].id;
+        // Gallery 테이블에 게시물 데이터 삽입
+        const insertGalleryQuery = `
+            INSERT INTO Gallery (Title, Content, Upload_DATE)
+            VALUES (?, ?, ?)
+            RETURNING Gallery_ID
+        `;
+        const galleryResult = await pool.query(insertGalleryQuery, [title, content, upload_date]);
+        const galleryId = galleryResult.rows[0].gallery_id;
 
-        // 이미지 데이터 삽입
-        const insertImageQuery = 'INSERT INTO gallery_images (post_id, image_url) VALUES ($1, $2)';
-        for (const url of image_url) {
-            await pool.query(insertImageQuery, [postId, url]);
-        }
+        // Gallery_Album 테이블에 앨범 삽입
+        const insertAlbumQuery = `
+            INSERT INTO Gallery_Album (Gallery_ID, Thumbnail_URL)
+            VALUES (?, ?)
+            RETURNING Album_ID
+        `;
+        const albumResult = await pool.query(insertAlbumQuery, [galleryId, thumbnail_url]);
+        const albumId = albumResult.rows[0].album_id;
+
+        // Gallery_Image 테이블에 이미지 삽입
+        const insertImageQuery = 'INSERT INTO Gallery_Image (Album_ID, ImageURL) VALUES (?, ?)';
+        const imageInsertPromises = image_urls.map((url) => pool.query(insertImageQuery, [albumId, url]));
+        await Promise.all(imageInsertPromises);
 
         // 트랜잭션 커밋
         await pool.query('COMMIT');
 
         res.status(201).json({
-            message: '갤러리 게시물이 성공적으로 추가되었습니다.',
-            postId
+            message: '갤러리 게시물 및 앨범이 성공적으로 추가되었습니다.',
+            galleryId,
+            albumId,
         });
     } catch (error) {
         // 트랜잭션 롤백
         await pool.query('ROLLBACK');
-        console.error('Error inserting post:', error);
+        console.error('Error inserting gallery post:', error);
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
 
-// 지환: 갤러리 게시물 전체 수정 엔드포인트
+// 지환: 갤러리 게시물 전체 수정
 app.put('/api/admin/gallery/put/:id', async (req, res) => {
-    const postId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
-    const { title, upload_date, content, image_url } = req.body;
+    const galleryId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
+    const { title, upload_date, content, thumbnail_url, image_urls } = req.body;
 
     // 데이터 유효성 검사
-    if (!title || !upload_date || !content || !Array.isArray(image_url)) {
+    if (!title || !upload_date || !content || !thumbnail_url || !Array.isArray(image_urls)) {
         return res.status(400).json({ message: '필수 데이터가 부족하거나 잘못된 형식입니다.' });
     }
 
@@ -336,57 +349,80 @@ app.put('/api/admin/gallery/put/:id', async (req, res) => {
         // 트랜잭션 시작
         await pool.query('BEGIN');
 
-        // 게시물 데이터 업데이트
-        const updatePostQuery = `
-            UPDATE gallery_posts
-            SET title = $1, upload_date = $2, content = $3
-            WHERE id = $4
+        // Gallery 테이블의 게시물 데이터 업데이트
+        const updateGalleryQuery = `
+            UPDATE Gallery
+            SET Title = ?, Content = ?, Upload_DATE = ?
+            WHERE Gallery_ID = ?
         `;
-        await pool.query(updatePostQuery, [title, upload_date, content, postId]);
+        await pool.query(updateGalleryQuery, [title, content, upload_date, galleryId]);
+
+        // Gallery_Album 테이블의 앨범 데이터 업데이트
+        const updateAlbumQuery = `
+            UPDATE Gallery_Album
+            SET Thumbnail_URL = ?
+            WHERE Gallery_ID = ?
+        `;
+        const albumResult = await pool.query(updateAlbumQuery, [thumbnail_url, galleryId]);
+
+        // Album_ID 가져오기
+        const albumId = albumResult.rows[0].album_id;
 
         // 기존 이미지 삭제
-        const deleteImagesQuery = 'DELETE FROM gallery_images WHERE post_id = $1';
-        await pool.query(deleteImagesQuery, [postId]);
+        const deleteImagesQuery = 'DELETE FROM Gallery_Image WHERE Album_ID = ?';
+        await pool.query(deleteImagesQuery, [albumId]);
 
         // 새 이미지 추가
-        const insertImageQuery = 'INSERT INTO gallery_images (post_id, image_url) VALUES ($1, $2)';
-        for (const url of image_url) {
-            await pool.query(insertImageQuery, [postId, url]);
-        }
+        const insertImageQuery = 'INSERT INTO Gallery_Image (Album_ID, ImageURL) VALUES (?, ?)';
+        const imageInsertPromises = image_urls.map((url) => pool.query(insertImageQuery, [albumId, url]));
+        await Promise.all(imageInsertPromises);
 
         // 트랜잭션 커밋
         await pool.query('COMMIT');
 
         res.status(200).json({
             message: '갤러리 게시물이 성공적으로 수정되었습니다.',
-            postId
+            galleryId,
         });
     } catch (error) {
         // 트랜잭션 롤백
         await pool.query('ROLLBACK');
-        console.error('Error updating post:', error);
+        console.error('Error updating gallery post:', error);
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
 
-//지환: 갤러리 게시물 삭제 엔드포인트
+// 지환: 갤러리 게시물 삭제 
 app.delete('/api/admin/gallery/delete/:id', async (req, res) => {
-    const postId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
+    const galleryId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
 
     try {
         // 트랜잭션 시작
         await pool.query('BEGIN');
 
+        // Album_ID 가져오기
+        const albumResult = await pool.query('SELECT Album_ID FROM Gallery_Album WHERE Gallery_ID = ?', [galleryId]);
+        if (albumResult.rowCount === 0) {
+            // 앨범이 없는 경우
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ message: '앨범이 존재하지 않습니다.' });
+        }
+        const albumId = albumResult.rows[0].album_id;
+
         // 이미지 삭제
-        const deleteImagesQuery = 'DELETE FROM gallery_images WHERE post_id = $1';
-        await pool.query(deleteImagesQuery, [postId]);
+        const deleteImagesQuery = 'DELETE FROM Gallery_Image WHERE Album_ID = ?';
+        await pool.query(deleteImagesQuery, [albumId]);
+
+        // 앨범 삭제
+        const deleteAlbumQuery = 'DELETE FROM Gallery_Album WHERE Album_ID = ?';
+        await pool.query(deleteAlbumQuery, [albumId]);
 
         // 게시물 삭제
-        const deletePostQuery = 'DELETE FROM gallery_posts WHERE id = $1';
-        const result = await pool.query(deletePostQuery, [postId]);
+        const deletePostQuery = 'DELETE FROM Gallery WHERE Gallery_ID = ?';
+        const postResult = await pool.query(deletePostQuery, [galleryId]);
 
-        if (result.rowCount === 0) {
-            // 게시물이 존재하지 않는 경우
+        if (postResult.rowCount === 0) {
+            // 게시물이 없는 경우
             await pool.query('ROLLBACK');
             return res.status(404).json({ message: '게시물이 존재하지 않습니다.' });
         }
@@ -396,16 +432,15 @@ app.delete('/api/admin/gallery/delete/:id', async (req, res) => {
 
         res.status(200).json({
             message: '갤러리 게시물이 성공적으로 삭제되었습니다.',
-            postId
+            galleryId,
         });
     } catch (error) {
         // 트랜잭션 롤백
         await pool.query('ROLLBACK');
-        console.error('Error deleting post:', error);
+        console.error('Error deleting gallery post:', error);
         res.status(500).json({ message: '서버 오류가 발생했습니다.' });
     }
 });
-
 
 app.listen(3001, () => {
   console.log('Server is running on http://localhost:3001');
