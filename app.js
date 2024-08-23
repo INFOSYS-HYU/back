@@ -196,7 +196,7 @@ app.delete('/api/admin/finance/delete/:id', async (req, res) => {
 });
 
 
-//지환: 캘린더 일정 추가
+//지환: 관리자 캘린더 일정 추가
 app.post('/api/admin/calendar/post', (req, res) => {
     const { startDate, endDate, title, content } = req.body;
     if (!startDate || !endDate || !title || !content) {
@@ -221,7 +221,7 @@ app.post('/api/admin/calendar/post', (req, res) => {
     });
 });
 
-// 지환: 캘린더 일정 수정 엔드포인트
+// 지환: 관리자 캘린더 일정 수정
 app.put('/api/admin/calendar/patch/:id', (req, res) => {
     const { id } = req.params;
     const { startDate, endDate, title, content } = req.body;
@@ -257,7 +257,7 @@ app.put('/api/admin/calendar/patch/:id', (req, res) => {
     });
 });
 
-// 지환: 캘린더 일정 삭제 엔드포인트
+// 지환: 관리자 캘린더 일정 삭제
 app.delete('/api/admin/calendar/post/:id', (req, res) => {
     const { id } = req.params;
 
@@ -283,7 +283,7 @@ app.delete('/api/admin/calendar/post/:id', (req, res) => {
     });
 });
 
-// 지환: 갤러리 게시물 추가
+// 지환: 관리자 갤러리 게시물 추가
 app.post('/api/admin/gallery/post', async (req, res) => {
     const { title, upload_date, content, thumbnail_url, image_urls } = req.body;
 
@@ -335,7 +335,7 @@ app.post('/api/admin/gallery/post', async (req, res) => {
     }
 });
 
-// 지환: 갤러리 게시물 전체 수정
+// 지환: 관리자 갤러리 게시물 전체 수정
 app.put('/api/admin/gallery/put/:id', async (req, res) => {
     const galleryId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
     const { title, upload_date, content, thumbnail_url, image_urls } = req.body;
@@ -392,7 +392,7 @@ app.put('/api/admin/gallery/put/:id', async (req, res) => {
     }
 });
 
-// 지환: 갤러리 게시물 삭제 
+// 지환: 관리자 갤러리 게시물 삭제 
 app.delete('/api/admin/gallery/delete/:id', async (req, res) => {
     const galleryId = parseInt(req.params.id, 10); // URL 파라미터에서 게시물 ID를 가져옴
 
