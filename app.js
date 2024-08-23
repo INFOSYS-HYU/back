@@ -199,15 +199,11 @@ app.delete('/api/admin/finance/delete/:id', async (req, res) => {
 //지환: 캘린더 일정 추가
 app.post('/api/admin/calendar/post', (req, res) => {
     const { startDate, endDate, title, content } = req.body;
-
-    // 필수 필드 검증
     if (!startDate || !endDate || !title || !content) {
         return res.status(400).json({ error: "필수 필드가 누락되었습니다." });
     }
-
-    // SQL INSERT 문 작성
     const sql = `
-        INSERT INTO calendar_events (start_date, end_date, title, content)
+        INSERT INTO calendar_events (Start_date, End_date, Title, Content)
         VALUES (?, ?, ?, ?)
     `;
 
@@ -238,8 +234,8 @@ app.put('/api/admin/calendar/patch/:id', (req, res) => {
     // SQL UPDATE 문 작성
     const sql = `
         UPDATE calendar_events 
-        SET start_date = ?, end_date = ?, title = ?, content = ? 
-        WHERE id = ?
+        SET Start_date = ?, End_date = ?, Title = ?, Content = ? 
+        WHERE Calendar_ID = ?
     `;
 
     // 데이터베이스에서 일정 수정
