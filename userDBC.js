@@ -300,6 +300,85 @@ const deleteGallery = async (galleryId) => {
   }
 };
 
+// 캘린더 생성 함수
+const createCalendar = async (startDate, endDate, title, content) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    // Calendar 테이블에 이벤트 추가
+    const [result] = await connection.query(
+      "INSERT INTO Calendar (startDate, endDate, title, content) VALUES (?, ?, ?, ?)",
+      [startDate, endDate, title, content]
+    );
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    return { id: result.insertId, startDate, endDate, title, content };
+  } catch (error) {
+    await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+    console.error("Error creating calendar event:", error);
+    throw error;
+  } finally {
+    connection.release(); // 연결 해제
+  }
+};
+
+// 캘린더 업데이트 함수
+const updateCalendar = async (id, startDate, endDate, title, content) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    // Calendar 테이블에서 이벤트 업데이트
+    const [updateResult] = await connection.query(
+      "UPDATE Calendar SET startDate = ?, endDate = ?, title = ?, content = ? WHERE id = ?",
+      [startDate, endDate, title, content, id]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      throw new Error("No calendar event found with the provided ID.");
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    return { id, startDate, endDate, title, content };
+  } catch (error) {
+    await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+    console.error("Error updating calendar event:", error);
+    throw error;
+  } finally {
+    connection.release(); // 연결 해제
+  }
+};
+
+// 캘린더 삭제 함수
+const deleteCalendar = async (id) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    // Calendar 테이블에서 이벤트 삭제
+    const [result] = await connection.query(
+      "DELETE FROM Calendar WHERE id = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error("No calendar event found with the provided ID.");
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    return true; // 삭제 성공
+  } catch (error) {
+    await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+    console.error("Error deleting calendar event:", error);
+    throw error;
+  } finally {
+    connection.release(); // 연결 해제
+  }
+};
 
 module.exports = {
   getNotice,
@@ -312,5 +391,8 @@ module.exports = {
   deleteNotice,
   createGallery, //지환: 갤러리 DB 함수
   updateGallery,
-  deleteGallery 
+  deleteGallery,
+  createCalendar,
+  updateCalendar,
+  deleteCalendar
 };
