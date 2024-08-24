@@ -2,7 +2,6 @@ const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
 
-// Create the connection pool. The pool-specific settings are the defaults
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -13,7 +12,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
-
 const promisePool = pool.promise();
 
 const createNotice = async (title, content) => {
@@ -119,7 +117,7 @@ const getFinance = async () => {
 
     // 데이터를 변환하여 요청한 형식으로 변경
     const financeData = rows.map((row) => ({
-      id: row.Quarter, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
+      id: row.fileId, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
       year: moment.tz(row.date, "Asia/Seoul").year(),
       month: moment.tz(row.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
       quarter: row.Quarter,
@@ -147,11 +145,12 @@ const getFinanceById = async (id) => {
 
     const finance = rows[0];
     return {
-      id: finance.Quarter,
+      id: finance.fileId,
+      title: finance.title,
       year: moment.tz(finance.date, "Asia/Seoul").year(),
       month: moment.tz(finance.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
       quarter: finance.Quarter,
-      image_url: finance.fileId ? [finance.fileId] : [], // `fileId`를 사용하여 이미지 URL 리스트 생성 (여러 파일일 경우를 고려하여 배열로 처리)
+      // image_url: finance.fileId ? [finance.fileId] : [], // `fileId`를 사용하여 이미지 URL 리스트 생성 (여러 파일일 경우를 고려하여 배열로 처리)
     };
   } catch (error) {
     console.error("Error fetching finance data by ID:", error);
