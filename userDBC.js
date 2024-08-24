@@ -182,6 +182,125 @@ const getCalendar = async () => {
   }
 };
 
+// 갤러리 게시물을 생성하는 함수
+const createGallery = async (title, upload_date, content, image_urls) => {
+  const connection = await pool.getConnection();
+  try {
+      await connection.beginTransaction(); // 트랜잭션 시작
+
+      // Gallery 테이블에 게시물 추가
+      const [result] = await connection.query(
+          "INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",
+          [title, content, upload_date]
+      );
+
+      const galleryId = result.insertId; // 새로 생성된 GalleryID
+
+      // Gallery_Image 테이블에 이미지 추가
+      if (image_urls && image_urls.length > 0) {
+          const insertImagePromises = image_urls.map(imageUrl => {
+              return connection.query(
+                  "INSERT INTO Gallery_Image (ImageURL, Gallery_ID) VALUES (?, ?)",
+                  [imageUrl, galleryId]
+              );
+          });
+
+          await Promise.all(insertImagePromises); // 모든 이미지 추가 완료 대기
+      }
+
+      await connection.commit(); // 트랜잭션 커밋
+
+      return { id: galleryId, title, content };
+  } catch (error) {
+      await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+      console.error("Error creating gallery:", error);
+      throw error;
+  } finally {
+      connection.release(); // 연결 해제
+  }
+};
+
+// 갤러리 게시물을 수정하는 함수
+const updateGallery = async (galleryId, title, upload_date, content, image_urls) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    // Gallery 테이블에서 게시물 업데이트
+    const [updateResult] = await connection.query(
+      "UPDATE Gallery SET Title = ?, Content = ?, Upload_DATE = ? WHERE GalleryID = ?",
+      [title, content, upload_date, galleryId]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      throw new Error("No gallery post found with the provided ID.");
+    }
+
+    // Gallery_Image 테이블에서 기존 이미지 삭제
+    await connection.query(
+      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
+      [galleryId]
+    );
+
+    // Gallery_Image 테이블에 새로운 이미지 추가
+    if (image_urls && image_urls.length > 0) {
+      const insertImagePromises = image_urls.map(imageUrl => {
+        return connection.query(
+          "INSERT INTO Gallery_Image (ImageURL, Gallery_ID) VALUES (?, ?)",
+          [imageUrl, galleryId]
+        );
+      });
+
+      await Promise.all(insertImagePromises); // 모든 이미지 추가 완료 대기
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    return { id: galleryId, title, content };
+  } catch (error) {
+    await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+    console.error("Error updating gallery:", error);
+    throw error;
+  } finally {
+    connection.release(); // 연결 해제
+  }
+};
+
+// 갤러리 게시물을 삭제하는 함수
+const deleteGallery = async (galleryId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    // Gallery_Image 테이블에서 해당 게시물의 모든 이미지 삭제
+    await connection.query(
+      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
+      [galleryId]
+    );
+
+    // Gallery 테이블에서 게시물 삭제
+    const [result] = await connection.query(
+      "DELETE FROM Gallery WHERE GalleryID = ?",
+      [galleryId]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error("No gallery post found with the provided ID.");
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    return true; // 삭제 성공
+  } catch (error) {
+    await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
+    console.error("Error deleting gallery:", error);
+    throw error;
+  } finally {
+    connection.release(); // 연결 해제
+  }
+};
+
+
 module.exports = {
   getNotice,
   getNoticeById,
@@ -191,4 +310,7 @@ module.exports = {
   createNotice,
   updateNotice,
   deleteNotice,
+  createGallery, //지환: 갤러리 DB 함수
+  updateGallery,
+  deleteGallery 
 };
