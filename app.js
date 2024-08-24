@@ -5,8 +5,17 @@ const {
   getNotice,
   getNoticeById,
   getFinance,
-  getFinanceById,
+  getFinanceById, // 추가된 함수
   getCalendar,
+  createNotice,
+  updateNotice,
+  deleteNotice,
+  createGallery, 
+  updateGallery,
+  deleteGallery,
+  createCalendar,
+  updateCalendar,
+  deleteCalendar
 } = require("./userDBC");
 const authStudent = require("./auth");
 const app = express();
@@ -245,119 +254,67 @@ app.delete("/api/admin/finance/delete/:id", async (req, res) => {
 });
 
 //지환: 관리자 캘린더 일정 추가
-app.post("/api/admin/calendar/post", (req, res) => {
+app.post('/api/admin/calendar/post', async (req, res) => {
   const { startDate, endDate, title, content } = req.body;
+
+  // 필수 필드 검증
   if (!startDate || !endDate || !title || !content) {
-    return res.status(400).json({ error: "필수 필드가 누락되었습니다." });
+    return res.status(400).json({ error: '필수 필드가 누락되었습니다.' });
   }
-  const sql = `
-        INSERT INTO calendar_events (Start_date, End_date, Title, Content)
-        VALUES (?, ?, ?, ?)
-    `;
 
-  // 데이터베이스에 삽입
-  connection.query(
-    sql,
-    [startDate, endDate, title, content],
-    (error, results) => {
-      if (error) {
-        return res
-          .status(500)
-          .json({ error: "일정 추가 중 오류가 발생했습니다." });
-      }
-
-      // 성공적으로 저장되었음을 응답
-      res.status(201).json({
-        message: "일정이 성공적으로 추가되었습니다.",
-        eventId: results.insertId,
-      });
-    }
-  );
+  try {
+    const newCalendar = await createCalendar(startDate, endDate, title, content);
+    res.status(201).json(newCalendar);
+  } catch (error) {
+    res.status(500).json({ error: '캘린더 생성 중 오류가 발생했습니다.' });
+  }
 });
 
 // 지환: 관리자 캘린더 일정 수정
-app.put("/api/admin/calendar/patch/:id", (req, res) => {
+app.put('/api/admin/calendar/put/:id', async (req, res) => {
   const { id } = req.params;
   const { startDate, endDate, title, content } = req.body;
 
   // 필수 필드 검증
   if (!startDate || !endDate || !title || !content) {
-    return res.status(400).json({ error: "필수 필드가 누락되었습니다." });
+    return res.status(400).json({ error: '필수 필드가 누락되었습니다.' });
   }
 
-  // SQL UPDATE 문 작성
-  const sql = `
-        UPDATE calendar_events 
-        SET Start_date = ?, End_date = ?, Title = ?, Content = ? 
-        WHERE Calendar_ID = ?
-    `;
-
-  // 데이터베이스에서 일정 수정
-  connection.query(
-    sql,
-    [startDate, endDate, title, content, id],
-    (error, results) => {
-      if (error) {
-        return res
-          .status(500)
-          .json({ error: "일정 수정 중 오류가 발생했습니다." });
-      }
-
-      // 수정된 행 수가 0인 경우 (해당 ID가 없을 때)
-      if (results.affectedRows === 0) {
-        return res
-          .status(404)
-          .json({ error: "해당 ID의 일정을 찾을 수 없습니다." });
-      }
-
-      // 성공적으로 수정되었음을 응답
-      res.status(200).json({
-        message: "일정이 성공적으로 수정되었습니다.",
-        updatedEventId: id,
-      });
+  try {
+    const updatedCalendar = await updateCalendar(id, startDate, endDate, title, content);
+    if (updatedCalendar) {
+      res.status(200).json(updatedCalendar);
+    } else {
+      res.status(404).json({ error: '캘린더 이벤트를 찾을 수 없습니다.' });
     }
-  );
+  } catch (error) {
+    res.status(500).json({ error: '캘린더 수정 중 오류가 발생했습니다.' });
+  }
 });
 
 // 지환: 관리자 캘린더 일정 삭제
-app.delete("/api/admin/calendar/post/:id", (req, res) => {
+app.delete('/api/admin/calendar/delete/:id', async (req, res) => {
   const { id } = req.params;
 
-  // SQL DELETE 문 작성
-  const sql = "DELETE FROM calendar_events WHERE id = ?";
-
-  // 데이터베이스에서 일정 삭제
-  connection.query(sql, [id], (error, results) => {
-    if (error) {
-      return res
-        .status(500)
-        .json({ error: "일정 삭제 중 오류가 발생했습니다." });
+  try {
+    const success = await deleteCalendar(id);
+    if (success) {
+      res.status(200).json({ message: '캘린더 이벤트가 성공적으로 삭제되었습니다.' });
+    } else {
+      res.status(404).json({ error: '캘린더 이벤트를 찾을 수 없습니다.' });
     }
-
-    // 삭제된 행이 없는 경우 (해당 ID가 없을 때)
-    if (results.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ error: "해당 ID의 일정을 찾을 수 없습니다." });
-    }
-
-    // 성공적으로 삭제되었음을 응답
-    res.status(200).json({
-      message: "일정이 성공적으로 삭제되었습니다.",
-      deletedEventId: id,
-    });
-  });
+  } catch (error) {
+    res.status(500).json({ error: '캘린더 삭제 중 오류가 발생했습니다.' });
+  }
 });
 
 // 지환: 관리자 갤러리 게시물 추가
-app.post("/api/admin/gallery/post", async (req, res) => {
+app.post('/api/admin/gallery/post', async (req, res) => {
   const { title, upload_date, content, image_urls } = req.body;
 
   // 필수 필드 검증
   if (!title || !upload_date || !content || !Array.isArray(image_urls)) {
-    return res
-      .status(400)
-      .json({ error: "필수 필드가 누락되었거나 유효하지 않습니다." });
+    return res.status(400).json({ error: "필수 필드가 누락되었거나 유효하지 않습니다." });
   }
 
   try {
@@ -365,51 +322,39 @@ app.post("/api/admin/gallery/post", async (req, res) => {
     const result = await createGallery(title, upload_date, content, image_urls);
     res.status(201).json({
       message: "갤러리 게시물이 성공적으로 생성되었습니다.",
-      gallery: result,
+      gallery: result
     });
   } catch (error) {
     console.error("Error creating gallery:", error);
-    res
-      .status(500)
-      .json({ error: "갤러리 게시물 생성 중 오류가 발생했습니다." });
+    res.status(500).json({ error: "갤러리 게시물 생성 중 오류가 발생했습니다." });
   }
 });
 
 // 지환: 관리자 갤러리 게시물 전체 수정
-app.put("/api/admin/gallery/put/:id", async (req, res) => {
+app.put('/api/admin/gallery/put/:id', async (req, res) => {
   const galleryId = parseInt(req.params.id, 10); // URL 매개변수에서 갤러리 ID 추출
   const { title, upload_date, content, image_urls } = req.body;
 
   // 필수 필드 검증
   if (!title || !upload_date || !content || !Array.isArray(image_urls)) {
-    return res
-      .status(400)
-      .json({ error: "필수 필드가 누락되었거나 유효하지 않습니다." });
+    return res.status(400).json({ error: "필수 필드가 누락되었거나 유효하지 않습니다." });
   }
 
   try {
     // 갤러리 게시물 업데이트
-    const result = await updateGallery(
-      galleryId,
-      title,
-      upload_date,
-      content,
-      image_urls
-    );
+    const result = await updateGallery(galleryId, title, upload_date, content, image_urls);
     res.status(200).json({
       message: "갤러리 게시물이 성공적으로 수정되었습니다.",
-      gallery: result,
+      gallery: result
     });
   } catch (error) {
     console.error("Error updating gallery:", error);
-    res
-      .status(500)
-      .json({ error: "갤러리 게시물 수정 중 오류가 발생했습니다." });
+    res.status(500).json({ error: "갤러리 게시물 수정 중 오류가 발생했습니다." });
   }
 });
 
-// 지환: 관리자 갤러리 게시물 삭제
-app.delete("/api/admin/gallery/delete/:id", async (req, res) => {
+// 지환: 관리자 갤러리 게시물 삭제 
+app.delete('/api/admin/gallery/delete/:id', async (req, res) => {
   const galleryId = parseInt(req.params.id, 10); // URL 매개변수에서 갤러리 ID 추출
 
   try {
@@ -418,16 +363,14 @@ app.delete("/api/admin/gallery/delete/:id", async (req, res) => {
 
     if (success) {
       res.status(200).json({
-        message: "갤러리 게시물이 성공적으로 삭제되었습니다.",
+        message: "갤러리 게시물이 성공적으로 삭제되었습니다."
       });
     } else {
       res.status(404).json({ error: "갤러리 게시물이 존재하지 않습니다." });
     }
   } catch (error) {
     console.error("Error deleting gallery:", error);
-    res
-      .status(500)
-      .json({ error: "갤러리 게시물 삭제 중 오류가 발생했습니다." });
+    res.status(500).json({ error: "갤러리 게시물 삭제 중 오류가 발생했습니다." });
   }
 });
 
