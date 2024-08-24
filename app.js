@@ -6,10 +6,40 @@ const authStudent = require('./auth');
 const app = express();
 
 
+
 app.use(cors());
 app.use(express.json())
 app.use(bodyParser.json());
 
+require("dotenv").config();
+
+const { S3Client } = require('@aws-sdk/client-s3')
+const multer = require('multer')
+const multerS3 = require('multer-s3')
+const s3 = new S3Client({
+  region : 'ap-southeast-2', 
+  credentials : {
+      accessKeyId : process.env.KeyId,
+      secretAccessKey : process.env.Secretkey
+  }
+})
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: 'infosysweb',
+    key: function (req, file, cb) {
+      cb(null, Date.now().toString()) //업로드시 파일명 변경가능
+    }
+  })
+})
+
+
+app.post('/add', upload.single('img1'),async (req, res) => {
+  console.log(req.file.location);
+  res.send('File uploaded successfully');
+  
+});
 
 // 승희: 전체 공지사항 가져오기
 app.get('/api/notice', async (req, res) => {
