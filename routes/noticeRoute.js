@@ -1,32 +1,34 @@
-// routes/noticeRoute.js
 const express = require('express');
 const router = express.Router();
 const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice } = require('../userDBC');
 
-router.get('/', async (req, res) => {
-  try {
-    const noticeData = await getNotice();
-    res.json(noticeData);
-  } catch (error) {
-    console.error("Error fetching notices:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
 
+// 전체 공지사항 목록 (페이지네이션 적용)
 router.get('/:page', async (req, res) => {
-  const page = parseInt(req.params.page, 10);
-  const limit = 10;
-  const offset = (page - 1) * limit;
-
+  const page = parseInt(req.params.page, 10) || 1;
+  const limit = 10; // 페이지당 항목 수
   try {
-    const noticeData = await getNotice(limit, offset);
-    res.json(noticeData);
+    const { notices, totalPages } = await getNotice(page, limit);
+    res.json({ notices, totalPages, currentPage: page });
   } catch (error) {
     console.error("Error fetching notices:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
+// 최신 공지사항 4개 조회
+router.get('/recent', async (req, res) => {
+  try {
+    const { notices } = await getNotice(1, 4);
+    res.json(notices);
+  } catch (error) {
+    console.error("Error fetching recent notices:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+// 특정 공지사항 조회
 router.get('/detail/:id', async (req, res) => {
   const noticeId = parseInt(req.params.id, 10);
 
@@ -43,6 +45,7 @@ router.get('/detail/:id', async (req, res) => {
   }
 });
 
+// 공지사항 생성
 router.post('/', async (req, res) => {
   const { title, content } = req.body;
   try {
@@ -54,6 +57,7 @@ router.post('/', async (req, res) => {
   }
 });
 
+// 공지사항 수정
 router.put('/:id', async (req, res) => {
   const noticeId = parseInt(req.params.id, 10);
   const { title, content } = req.body;
@@ -70,6 +74,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// 공지사항 삭제
 router.delete('/:id', async (req, res) => {
   const noticeId = parseInt(req.params.id, 10);
   try {

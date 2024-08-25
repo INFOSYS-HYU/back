@@ -55,14 +55,21 @@ const deleteNotice = async (id) => {
     throw error;
   }
 };
-
-const getNotice = async () => {
+const getNotice = async (page = 1, limit = 10) => {
   try {
+    const offset = (page - 1) * limit;
+    
+    // 전체 공지사항 수 조회
+    const [countResult] = await promisePool.query("SELECT COUNT(*) as total FROM Notice");
+    const totalNotices = countResult[0].total;
+    
+    // 페이지네이션된 공지사항 조회
     const [rows] = await promisePool.query(
       "SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date " +
       "FROM Notice " +
       "ORDER BY Upload_DATE DESC " +
-      "LIMIT 4;"
+      "LIMIT ? OFFSET ?",
+      [limit, offset]
     );
 
     const notices = rows.map((row) => ({
@@ -71,8 +78,10 @@ const getNotice = async () => {
       desc: row.content,
       date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
     }));
-    console.log(notices);
-    return notices;
+
+    const totalPages = Math.ceil(totalNotices / limit);
+
+    return { notices, totalPages };
   } catch (error) {
     console.error("Error fetching notices:", error);
     throw error;
