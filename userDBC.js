@@ -2,6 +2,7 @@ const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
 
+// Create the connection pool. The pool-specific settings are the defaults
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -12,6 +13,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
 const promisePool = pool.promise();
 
 const createNotice = async (title, content) => {
@@ -23,6 +25,21 @@ const createNotice = async (title, content) => {
     return { id: result.insertId, title, content };
   } catch (error) {
     console.error("Error creating notice:", error);
+    throw error;
+  }
+};
+
+const saveNoticeImages = async (noticeId, files) => {
+  try {
+    // 이미지 정보를 데이터베이스에 저장
+    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+
+    // 여러 이미지 정보를 삽입
+    for (const imageUrl of imageUrls) {
+      await promisePool.query("INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)", [noticeId, imageUrl]);
+    }
+  } catch (error) {
+    console.error("Error saving notice images:", error);
     throw error;
   }
 };
@@ -55,21 +72,11 @@ const deleteNotice = async (id) => {
     throw error;
   }
 };
-const getNotice = async (page = 1, limit = 10) => {
+
+const getNotice = async (retries = 3) => {
   try {
-    const offset = (page - 1) * limit;
-    
-    // 전체 공지사항 수 조회
-    const [countResult] = await promisePool.query("SELECT COUNT(*) as total FROM Notice");
-    const totalNotices = countResult[0].total;
-    
-    // 페이지네이션된 공지사항 조회
     const [rows] = await promisePool.query(
-      "SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date " +
-      "FROM Notice " +
-      "ORDER BY Upload_DATE DESC " +
-      "LIMIT ? OFFSET ?",
-      [limit, offset]
+      "SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice;"
     );
 
     const notices = rows.map((row) => ({
@@ -79,10 +86,15 @@ const getNotice = async (page = 1, limit = 10) => {
       date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
     }));
 
-    const totalPages = Math.ceil(totalNotices / limit);
-
-    return { notices, totalPages };
+    console.log(notices);
+    return notices;
   } catch (error) {
+    if (error.code === "ETIMEDOUT" && retries > 0) {
+      console.log(
+        `Connection timed out. Retrying... (${retries} attempts left)`
+      );
+      return getNotice(retries - 1);
+    }
     console.error("Error fetching notices:", error);
     throw error;
   }
@@ -122,7 +134,7 @@ const getFinance = async () => {
 
     // 데이터를 변환하여 요청한 형식으로 변경
     const financeData = rows.map((row) => ({
-      id: row.fileId, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
+      id: row.Quarter, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
       year: moment.tz(row.date, "Asia/Seoul").year(),
       month: moment.tz(row.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
       quarter: row.Quarter,
@@ -150,12 +162,11 @@ const getFinanceById = async (id) => {
 
     const finance = rows[0];
     return {
-      id: finance.fileId,
-      title: finance.title,
+      id: finance.Quarter,
       year: moment.tz(finance.date, "Asia/Seoul").year(),
       month: moment.tz(finance.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
       quarter: finance.Quarter,
-      // image_url: finance.fileId ? [finance.fileId] : [], // `fileId`를 사용하여 이미지 URL 리스트 생성 (여러 파일일 경우를 고려하여 배열로 처리)
+      image_url: finance.fileId ? [finance.fileId] : [], // `fileId`를 사용하여 이미지 URL 리스트 생성 (여러 파일일 경우를 고려하여 배열로 처리)
     };
   } catch (error) {
     console.error("Error fetching finance data by ID:", error);
@@ -167,7 +178,7 @@ const getFinanceById = async (id) => {
 const getCalendar = async () => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
+      "SELECT id AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
     );
 
     const calendar = rows.map((row) => ({
@@ -187,45 +198,18 @@ const getCalendar = async () => {
 };
 
 // 갤러리 게시물을 생성하는 함수
-const createGallery = async (title, upload_date, content, image_urls) => {
-  const connection = await pool.getConnection();
+const createGallery = async (title, content) => {
   try {
-      await connection.beginTransaction(); // 트랜잭션 시작
-
-      // Gallery 테이블에 게시물 추가
-      const [result] = await connection.query(
-          "INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",
-          [title, content, upload_date]
-      );
-
-      const galleryId = result.insertId; // 새로 생성된 GalleryID
-
-      // Gallery_Image 테이블에 이미지 추가
-      if (image_urls && image_urls.length > 0) {
-          const insertImagePromises = image_urls.map(imageUrl => {
-              return connection.query(
-                  "INSERT INTO Gallery_Image (ImageURL, Gallery_ID) VALUES (?, ?)",
-                  [imageUrl, galleryId]
-              );
-          });
-
-          await Promise.all(insertImagePromises); // 모든 이미지 추가 완료 대기
-      }
-
-      await connection.commit(); // 트랜잭션 커밋
-
-      return { id: galleryId, title, content };
+    const [result] = await promisePool.query("INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",[title, content]);
+    return { id: result.insertId, title, content };
   } catch (error) {
-      await connection.rollback(); // 에러 발생 시 트랜잭션 롤백
-      console.error("Error creating gallery:", error);
-      throw error;
-  } finally {
-      connection.release(); // 연결 해제
+    console.error("Error creating Gallery:", error);
+    throw error;
   }
 };
 
 // 갤러리 게시물을 수정하는 함수
-const updateGallery = async (galleryId, title, upload_date, content, image_urls) => {
+const updateGallery = async (galleryId, title, upload_date, content) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction(); // 트랜잭션 시작
@@ -301,6 +285,21 @@ const deleteGallery = async (galleryId) => {
     throw error;
   } finally {
     connection.release(); // 연결 해제
+  }
+};
+
+const saveGalleryImages = async (galleryid, files) => {
+  try {
+    // 이미지 정보를 데이터베이스에 저장
+    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+
+    // 여러 이미지 정보를 삽입
+    for (const imageUrl of imageUrls) {
+      await promisePool.query("INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)", [galleryid, imageUrl]);
+    }
+  } catch (error) {
+    console.error("Error saving notice images:", error);
+    throw error;
   }
 };
 
@@ -384,6 +383,34 @@ const deleteCalendar = async (id) => {
   }
 };
 
+const createFinance = async (title, content, quarter) => {
+  try {
+    const [result] = await promisePool.query(
+      "INSERT INTO Finance (Title, Content, Upload_DATE, Quarter) VALUES (?, ?, NOW(), ?)",
+      [title, content, quarter]
+    );
+    return { id: result.insertId, title, content };
+  } catch (error) {
+    console.error("Error creating notice:", error);
+    throw error;
+  }
+};
+
+const saveFinanceImages = async (financeId, files) => {
+  try {
+    // 이미지 정보를 데이터베이스에 저장
+    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+
+    // 여러 이미지 정보를 삽입
+    for (const imageUrl of imageUrls) {
+      await promisePool.query("INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)", [financeId, imageUrl]);
+    }
+  } catch (error) {
+    console.error("Error saving notice images:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   getNotice,
   getNoticeById,
@@ -398,5 +425,9 @@ module.exports = {
   deleteGallery,
   createCalendar,
   updateCalendar,
-  deleteCalendar
+  deleteCalendar,
+  saveNoticeImages,
+  saveGalleryImages,
+  createFinance,
+  saveFinanceImages
 };
