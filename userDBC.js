@@ -39,7 +39,7 @@ const saveNoticeImages = async (noticeId, files) => {
       await promisePool.query("INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)", [noticeId, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice images:", error);
+    console.error("Error saving notice img1:", error);
     throw error;
   }
 };
@@ -145,7 +145,7 @@ const getNoticeById = async (id) => {
       title: notice.title,
       desc: notice.content,
       date: moment.tz(notice.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
-      images: imageUrls,
+      img1: imageUrls,
     };
   } catch (error) {
     console.error("Error fetching notice by ID:", error);
@@ -326,7 +326,7 @@ const saveGalleryImages = async (galleryid, files) => {
       await promisePool.query("INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)", [galleryid, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice images:", error);
+    console.error("Error saving notice img1:", error);
     throw error;
   }
 };
@@ -434,7 +434,7 @@ const saveFinanceImages = async (financeId, files) => {
       await promisePool.query("INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)", [financeId, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice images:", error);
+    console.error("Error saving notice img1:", error);
     throw error;
   }
 };
