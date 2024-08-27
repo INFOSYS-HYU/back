@@ -23,24 +23,59 @@ app.get('/', (req, res) => {
   res.send(`
       <h1>Log in</h1>
       <a href="/login">Log in</a>
+      <a href="/signup">Sign up</a>
   `);
 });
 
 app.get('/login', (req, res) => {
   let url = 'https://accounts.google.com/o/oauth2/v2/auth';
   url += `?client_id=${process.env.GOOGLE_CLIENT_ID}`
-  url += `&redirect_uri=${process.env.GOOGLE_REDIRECT_URI}`
+  url += `&redirect_uri=${process.env.GOOGLE_LOGIN_REDIRECT_URI}`
   url += '&response_type=code'
   url += '&scope=email profile'    
-  // 완성된 url로 이동
-  // 이 url이 위에서 본 구글 계정을 선택하는 화면임.
-res.redirect(url);
+  res.redirect(url);
 });
 
 app.get('/login/redirect', (req, res) => {
   const { code } = req.query;
   console.log(`code: ${code}`);
   res.send('ok');
+});
+
+// 회원가입 라우터
+app.get('/signup', (req, res) => {
+  let url = 'https://accounts.google.com/o/oauth2/v2/auth';
+  url += `?client_id=${process.env.GOOGLE_CLIENT_ID}`
+  url += `&redirect_uri=${process.env.GOOGLE_SIGNUP_REDIRECT_URI}`
+  url += '&response_type=code'
+  url += '&scope=email profile'    
+  res.redirect(url);
+});
+
+app.get('/signup/redirect', async (req, res) => {
+  const { code } = req.query;
+  console.log(`code: ${code}`);
+
+  // access_token, refresh_token 등의 구글 토큰 정보 가져오기
+  const resp = await axios.post(process.env.GOOGLE_TOKEN_URL, {
+      // x-www-form-urlencoded(body)
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_SIGNUP_REDIRECT_URI,
+      grant_type: 'authorization_code',
+  });
+
+  // email, google id 등의 사용자 구글 계정 정보 가져오기
+  const resp2 = await axios.get(process.env.GOOGLE_USERINFO_URL, {
+      // Request Header에 Authorization 추가
+      headers: {
+          Authorization: `Bearer ${resp.data.access_token}`,
+      },
+  });
+
+  // 구글 인증 서버에서 json 형태로 반환 받은 body 클라이언트에 반환
+  res.json(resp2.data);
 });
 
 const s3 = new S3Client({
