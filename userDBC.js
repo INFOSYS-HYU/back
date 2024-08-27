@@ -439,6 +439,53 @@ const saveFinanceImages = async (financeId, files) => {
   }
 };
 
+const getGallery = async (page = 1, limit = 10) => {
+  try {
+    const offset = (page - 1) * limit;
+    
+    // Get total count of notices
+    const [countResult] = await promisePool.query(
+      "SELECT COUNT(*) AS total FROM Gallery;"
+    );
+    const totalGalleries = countResult[0].total;
+
+    // Get paginated notices
+    const [rows] = await promisePool.query(
+      `SELECT GalleryID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Notice 
+       ORDER BY Upload_DATE DESC
+       LIMIT ? OFFSET ?;`,
+      [limit, offset]
+    );
+
+    const galleries = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      desc: row.content,
+      date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+    }));
+
+    const totalPages = Math.ceil(totalNotices / limit);
+
+    console.log(galleries);
+    return {
+      galleries,
+      currentPage: page,
+      totalPages,
+      totalGalleries,
+    };
+  } catch (error) {
+    if (error.code === "ETIMEDOUT" && retries > 0) {
+      console.log(
+        `Connection timed out. Retrying... (${retries} attempts left)`
+      );
+      return getGallery(page, limit, retries - 1);
+    }
+    console.error("Error fetching notices:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   getNotice,
   getNoticeById,
@@ -457,5 +504,6 @@ module.exports = {
   saveNoticeImages,
   saveGalleryImages,
   createFinance,
-  saveFinanceImages
+  saveFinanceImages,
+  getGallery,
 };
