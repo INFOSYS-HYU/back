@@ -29,14 +29,40 @@ const createNotice = async (title, content) => {
   }
 };
 
+const getRecentNotice = async () => {
+  try {
+    const [rows] = await promisePool.query(
+      `SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Notice 
+       ORDER BY Upload_DATE DESC
+       LIMIT 4;`
+    );
+
+    const notices = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      desc: row.content,
+      date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+    }));
+
+    console.log(notices);
+    return notices;
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 const saveNoticeImages = async (noticeId, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)", [noticeId, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)",
+        [noticeId, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -75,7 +101,7 @@ const deleteNotice = async (id) => {
 const getNotice = async (page = 1, limit = 10) => {
   try {
     const offset = (page - 1) * limit;
-    
+
     // Get total count of notices
     const [countResult] = await promisePool.query(
       "SELECT COUNT(*) AS total FROM Notice;"
@@ -138,14 +164,14 @@ const getNoticeById = async (id) => {
       [id]
     );
 
-    const imageUrls = imageRows.map(row => row.ImageURL); // 이미지 URL 배열 생성
+    const imageUrls = imageRows.map((row) => row.ImageURL); // 이미지 URL 배열 생성
 
     return {
       id: notice.id,
       title: notice.title,
-      desc: notice.content,
+      content: notice.content,
       date: moment.tz(notice.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
-      images: imageUrls,
+      img1: imageUrls,
     };
   } catch (error) {
     console.error("Error fetching notice by ID:", error);
@@ -228,7 +254,10 @@ const getCalendar = async () => {
 // 갤러리 게시물을 생성하는 함수
 const createGallery = async (title, content) => {
   try {
-    const [result] = await promisePool.query("INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",[title, content]);
+    const [result] = await promisePool.query(
+      "INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",
+      [title, content]
+    );
     return { id: result.insertId, title, content };
   } catch (error) {
     console.error("Error creating Gallery:", error);
@@ -253,14 +282,13 @@ const updateGallery = async (galleryId, title, upload_date, content) => {
     }
 
     // Gallery_Image 테이블에서 기존 이미지 삭제
-    await connection.query(
-      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
-      [galleryId]
-    );
+    await connection.query("DELETE FROM Gallery_Image WHERE Gallery_ID = ?", [
+      galleryId,
+    ]);
 
     // Gallery_Image 테이블에 새로운 이미지 추가
     if (image_urls && image_urls.length > 0) {
-      const insertImagePromises = image_urls.map(imageUrl => {
+      const insertImagePromises = image_urls.map((imageUrl) => {
         return connection.query(
           "INSERT INTO Gallery_Image (ImageURL, Gallery_ID) VALUES (?, ?)",
           [imageUrl, galleryId]
@@ -289,10 +317,9 @@ const deleteGallery = async (galleryId) => {
     await connection.beginTransaction(); // 트랜잭션 시작
 
     // Gallery_Image 테이블에서 해당 게시물의 모든 이미지 삭제
-    await connection.query(
-      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
-      [galleryId]
-    );
+    await connection.query("DELETE FROM Gallery_Image WHERE Gallery_ID = ?", [
+      galleryId,
+    ]);
 
     // Gallery 테이블에서 게시물 삭제
     const [result] = await connection.query(
@@ -319,11 +346,14 @@ const deleteGallery = async (galleryId) => {
 const saveGalleryImages = async (galleryid, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)", [galleryid, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)",
+        [galleryid, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -427,11 +457,14 @@ const createFinance = async (title, content, quarter) => {
 const saveFinanceImages = async (financeId, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)", [financeId, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)",
+        [financeId, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -448,6 +481,7 @@ module.exports = {
   createNotice,
   updateNotice,
   deleteNotice,
+  getRecentNotice,
   createGallery, //지환: 갤러리 DB 함수
   updateGallery,
   deleteGallery,
@@ -457,5 +491,5 @@ module.exports = {
   saveNoticeImages,
   saveGalleryImages,
   createFinance,
-  saveFinanceImages
+  saveFinanceImages,
 };

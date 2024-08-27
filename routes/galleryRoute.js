@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGallery, updateGallery, deleteGallery } = require('../userDBC');
+const { createGallery, updateGallery, deleteGallery, getCalendar } = require('../userDBC');
 
 router.post('/', async (req, res) => {
   const { title, upload_date, content, image_urls } = req.body;
@@ -18,6 +18,18 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error("Error creating gallery:", error);
     res.status(500).json({ error: "갤러리 게시물 생성 중 오류가 발생했습니다." });
+  }
+});
+
+router.get('/:page', async (req, res) => {
+  const page = parseInt(req.params.page, 10) || 1;
+  const limit = 10; // 페이지당 항목 수
+  try {
+    const { gallery, totalPages } = await getCalendar(page, limit);
+    res.json({ gallery, totalPages, currentPage: page });
+  } catch (error) {
+    console.error("Error fetching notices:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
