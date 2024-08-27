@@ -117,7 +117,7 @@ const getNoticeById = async (id) => {
 const getFinance = async () => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT Upload_DATE AS date, Quarter, Title AS title, Content AS content, File_ID AS fileId FROM Finance;"
+      "SELECT Upload_DATE AS date, Quarter, Title AS title, Content AS content, Finance_ID AS fileId FROM Finance;"
     );
 
     // 데이터를 변환하여 요청한 형식으로 변경
