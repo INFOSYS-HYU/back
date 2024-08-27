@@ -48,6 +48,8 @@ router.get('/detail/:id', async (req, res) => {
 
 // 공지사항 생성
 router.post('/', async (req, res) => {
+  const res = await uploadImg
+  console.log(res);
   const { title, content } = req.body;
   try {
     const newNotice = await createNotice(title, content);

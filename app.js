@@ -36,9 +36,21 @@ const upload = multer({
   }),
 });
 
-export const uploadImg = async (img) => {
-  const IMGURL = await upload.array(img)
-  return(IMGURL);
+export const uploadImg = async (images) => {
+  return new Promise((resolve, reject) => {
+    upload.array('images', 10)(
+      { files: images }, 
+      null, 
+      (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          const imageUrls = images.map(img => img.location);
+          resolve(imageUrls);
+        }
+      }
+    );
+  });
 };
 
 app.post("/add", upload.single("img1"), async (req, res) => {
