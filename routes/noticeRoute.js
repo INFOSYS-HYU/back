@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice } = require('../userDBC');
+const { uploadImg } = require('../app');
 
 
 // 전체 공지사항 목록 (페이지네이션 적용)

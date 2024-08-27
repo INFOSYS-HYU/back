@@ -36,8 +36,13 @@ const upload = multer({
   }),
 });
 
+export const uploadImg = async (img) => {
+  const IMGURL = await upload.array(img)
+  return(IMGURL);
+};
+
 app.post("/add", upload.single("img1"), async (req, res) => {
-  console.log(req.file.location);
+  return(req.file.location);
   res.send("File uploaded successfully");
 });
 
