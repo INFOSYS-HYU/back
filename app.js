@@ -1,7 +1,24 @@
 const express = require('express');
 var cors = require('cors');
 const bodyParser = require('body-parser');
-const { getNotice, getNoticeByID, getFinance, getFinanceById, getCalendar } = require('./userDBC');
+const {   getNotice,
+  getNoticeById,
+  getFinance,
+  getFinanceById, // 추가된 함수
+  getCalendar,
+  createNotice,
+  updateNotice,
+  deleteNotice,
+  createGallery, 
+  updateGallery,
+  deleteGallery,
+  createCalendar,
+  updateCalendar,
+  deleteCalendar,
+  saveNoticeImages,
+  saveGalleryImages,
+  createFinance,
+  saveFinanceImages } = require('./userDBC');
 const authStudent = require('./auth');
 const app = express();
 
@@ -155,15 +172,21 @@ app.post('/api/authStudent', (req, res) => {
 });
 
 // 결산안 추가 API
-app.post('/api/admin/finance/post', async (req, res) => {
+app.post("/api/admin/finance/post", upload.array("img1", 10), async (req, res) => {
+  const { title, content, quarter } = req.body;
+  const files = req.files; // 업로드된 파일들
   try {
-    const { year, month, qurter, imageurl } = req.body;
-    const query = 'INSERT INTO finance (year, month, qurter, imageurl) VALUES (?, ?, ?, ?)';
-    const [result] = await pool.execute(query, [year, month, qurter, JSON.stringify(imageurl)]);
-    res.json({ id: result.insertId, message: '결산안이 성공적으로 추가되었습니다.' });
+    const newFinance = await createFinance(title, content);
+
+    // 공지사항에 관련된 파일 정보 저장
+    if (files && files.length > 0) {
+      await saveFinanceImages(newFinance.id, files);
+    }
+    
+    res.status(201).json(newFinance);
   } catch (error) {
-    console.error('결산안 추가 에러:', error);
-    res.status(500).json({ error: '결산안 추가 중 오류가 발생했습니다.' });
+    console.error("Error creating finance:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
