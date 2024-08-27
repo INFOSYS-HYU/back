@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require('axios');
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const { S3Client } = require("@aws-sdk/client-s3");
@@ -16,6 +17,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
+
+//로그인 화면 페이지 프론트
+app.get('/', (req, res) => {
+  res.send(`
+      <h1>Log in</h1>
+      <a href="/login">Log in</a>
+  `);
+});
+
+app.get('/login', (req, res) => {
+  let url = 'https://accounts.google.com/o/oauth2/v2/auth';
+  url += `?client_id=${process.env.GOOGLE_CLIENT_ID}`
+  url += `&redirect_uri=${process.env.GOOGLE_REDIRECT_URI}`
+  url += '&response_type=code'
+  url += '&scope=email profile'    
+  // 완성된 url로 이동
+  // 이 url이 위에서 본 구글 계정을 선택하는 화면임.
+res.redirect(url);
+});
+
+app.get('/login/redirect', (req, res) => {
+  const { code } = req.query;
+  console.log(`code: ${code}`);
+  res.send('ok');
+});
 
 const s3 = new S3Client({
   region: "ap-southeast-2",
