@@ -72,11 +72,23 @@ const deleteNotice = async (id) => {
     throw error;
   }
 };
-
-const getNotice = async (retries = 3) => {
+const getNotice = async (page = 1, limit = 10) => {
   try {
+    const offset = (page - 1) * limit;
+    
+    // Get total count of notices
+    const [countResult] = await promisePool.query(
+      "SELECT COUNT(*) AS total FROM Notice;"
+    );
+    const totalNotices = countResult[0].total;
+
+    // Get paginated notices
     const [rows] = await promisePool.query(
-      "SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice;"
+      `SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Notice 
+       ORDER BY Upload_DATE DESC
+       LIMIT ? OFFSET ?;`,
+      [limit, offset]
     );
 
     const notices = rows.map((row) => ({
@@ -86,14 +98,21 @@ const getNotice = async (retries = 3) => {
       date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
     }));
 
+    const totalPages = Math.ceil(totalNotices / limit);
+
     console.log(notices);
-    return notices;
+    return {
+      notices,
+      currentPage: page,
+      totalPages,
+      totalNotices,
+    };
   } catch (error) {
     if (error.code === "ETIMEDOUT" && retries > 0) {
       console.log(
         `Connection timed out. Retrying... (${retries} attempts left)`
       );
-      return getNotice(retries - 1);
+      return getNotice(page, limit, retries - 1);
     }
     console.error("Error fetching notices:", error);
     throw error;
@@ -178,7 +197,7 @@ const getFinanceById = async (id) => {
 const getCalendar = async () => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT id AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
+      "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
     );
 
     const calendar = rows.map((row) => ({
