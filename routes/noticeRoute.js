@@ -55,7 +55,8 @@ router.post('/', upload.array("img1", 10), async (req, res) => {
     const newNotice = await createNotice(title, content);
      // 공지사항에 관련된 파일 정보 저장
     if (files.length > 0) {
-      await saveNoticeImages(newNotice.id, files);
+      const fileUrls = files.map(file => file.location);
+      await saveNoticeImages(newNotice.id, fileUrls);
     }
 
     res.status(201).json(newNotice);
