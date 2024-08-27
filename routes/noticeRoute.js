@@ -4,6 +4,17 @@ const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice } = r
 const { uploadImg } = require('../app');
 
 
+// 최신 공지사항 4개 조회
+router.get('/recent', async (req, res) => {
+  try {
+    const { notices } = await getNotice(1, 4);
+    res.json(notices);
+  } catch (error) {
+    console.error("Error fetching recent notices:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // 전체 공지사항 목록 (페이지네이션 적용)
 router.get('/:page', async (req, res) => {
   const page = parseInt(req.params.page, 10) || 1;
@@ -13,17 +24,6 @@ router.get('/:page', async (req, res) => {
     res.json({ notices, totalPages, currentPage: page });
   } catch (error) {
     console.error("Error fetching notices:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// 최신 공지사항 4개 조회
-router.get('/recent', async (req, res) => {
-  try {
-    const { notices } = await getNotice(1, 4);
-    res.json(notices);
-  } catch (error) {
-    console.error("Error fetching recent notices:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
