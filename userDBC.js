@@ -131,12 +131,21 @@ const getNoticeById = async (id) => {
     }
 
     const notice = rows[0];
-    //이거 공지사항에 들어가는 이미지들은요..?
+
+    // 공지사항에 연결된 이미지 URL 가져오기
+    const [imageRows] = await promisePool.query(
+      "SELECT ImageURL FROM Notice_Image WHERE Notice_ID = ?",
+      [id]
+    );
+
+    const imageUrls = imageRows.map(row => row.ImageURL); // 이미지 URL 배열 생성
+
     return {
       id: notice.id,
       title: notice.title,
       desc: notice.content,
       date: moment.tz(notice.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+      images: imageUrls,
     };
   } catch (error) {
     console.error("Error fetching notice by ID:", error);
