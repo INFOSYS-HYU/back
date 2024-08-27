@@ -458,12 +458,28 @@ const getGallery = async (page = 1, limit = 10) => {
       [limit, offset]
     );
 
-    const galleries = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      desc: row.content,
-      date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
-    }));
+    const galleries = await Promise.all(
+      rows.map(async (row) => {
+        const [imageResult] = await promisePool.query(
+          `SELECT ImageURL 
+           FROM Gallery_Image 
+           WHERE Gallery_ID = ? 
+           ORDER BY Upload_DATE ASC 
+           LIMIT 1;`,
+          [row.id]
+        );
+        
+        const firstImageUrl = imageResult.length > 0 ? imageResult[0].ImageURL : null;
+
+        return {
+          id: row.id,
+          title: row.title,
+          desc: row.content,
+          date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+          img1: firstImageUrl, // 첫 번째 이미지 URL
+        };
+      })
+    );
 
     const totalPages = Math.ceil(totalNotices / limit);
 
