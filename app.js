@@ -10,7 +10,6 @@ const noticeRoutes = require('./routes/noticeRoute');
 const financeRoutes = require('./routes/financeRoute');
 const calendarRoutes = require('./routes/calendarRoute');
 const galleryRoutes = require('./routes/galleryRoute');
-const authRoutes = require('./routes/authRoute');
 
 const app = express();
 
@@ -36,7 +35,7 @@ const upload = multer({
   }),
 });
 
-export const uploadImg = (req, res) => {
+const uploadImg = (req, res) => {
   return new Promise((resolve, reject) => {
     upload.array('images', 10)(req, res, (err) => {
       if (err) {
@@ -64,3 +63,7 @@ app.use('/api/gallery', galleryRoutes);
 app.listen(3001, () => {
   console.log("Server is running on http://localhost:3001");
 });
+
+module.exports = {
+  uploadImg
+}
