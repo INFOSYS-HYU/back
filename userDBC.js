@@ -1,3 +1,5 @@
+
+
 const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
@@ -39,7 +41,7 @@ const saveNoticeImages = async (noticeId, files) => {
       await promisePool.query("INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)", [noticeId, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice img1:", error);
+    console.error("Error saving notice images:", error);
     throw error;
   }
 };
@@ -72,6 +74,7 @@ const deleteNotice = async (id) => {
     throw error;
   }
 };
+
 const getNotice = async (page = 1, limit = 10) => {
   try {
     const offset = (page - 1) * limit;
@@ -118,11 +121,13 @@ const getNotice = async (page = 1, limit = 10) => {
     throw error;
   }
 };
+
+
 // 특정 공지사항을 ID로 조회하는 함수
 const getNoticeById = async (id) => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT NoticeID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice WHERE NoticeID = ?",
+      "SELECT Notice_ID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice WHERE Notice_ID = ?",
       [id]
     );
 
@@ -145,7 +150,7 @@ const getNoticeById = async (id) => {
       title: notice.title,
       desc: notice.content,
       date: moment.tz(notice.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
-      img1: imageUrls,
+      images: imageUrls,
     };
   } catch (error) {
     console.error("Error fetching notice by ID:", error);
@@ -153,18 +158,17 @@ const getNoticeById = async (id) => {
   }
 };
 
-// 전체 결산안 데이터를 가져오는 함수
 const getFinance = async () => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT Upload_DATE AS date, Quarter, Title AS title, Content AS content, Finance_ID AS fileId FROM Finance;"
+      "SELECT Upload_DATE AS date, Year, Month, Quarter, Title AS title, Content AS content, Finance_ID AS financeId FROM Finance;"
     );
 
     // 데이터를 변환하여 요청한 형식으로 변경
     const financeData = rows.map((row) => ({
-      id: row.Quarter, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
-      year: moment.tz(row.date, "Asia/Seoul").year(),
-      month: moment.tz(row.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
+      id: row.financeId, // 여기에 적절한 ID를 설정 (예: Quarter를 ID로 사용)
+      year: row.Year,
+      month: row.Month,
       quarter: row.Quarter,
     }));
 
@@ -177,10 +181,11 @@ const getFinance = async () => {
 };
 
 // 특정 결산안을 ID로 조회하는 함수
+// 특정 결산안을 ID로 조회하는 함수
 const getFinanceById = async (id) => {
   try {
     const [rows] = await promisePool.query(
-      "SELECT Upload_DATE AS date, Quarter, Title AS title, Content AS content, File_ID AS fileId FROM Finance WHERE File_ID = ?",
+      "SELECT Upload_DATE AS date, Year, Month, Quarter, Title AS title, Content AS content, Finance_ID AS financeId FROM Finance WHERE Finance_ID = ?",
       [id]
     );
 
@@ -190,9 +195,10 @@ const getFinanceById = async (id) => {
 
     const finance = rows[0];
     return {
-      id: finance.Quarter,
-      year: moment.tz(finance.date, "Asia/Seoul").year(),
-      month: moment.tz(finance.date, "Asia/Seoul").month() + 1, // 월은 0부터 시작하므로 +1
+      id: finance.financeId,
+      title: finance.title,
+      year: finance.Year,
+      month: finance.Month,
       quarter: finance.Quarter,
       image_url: finance.fileId ? [finance.fileId] : [], // `fileId`를 사용하여 이미지 URL 리스트 생성 (여러 파일일 경우를 고려하여 배열로 처리)
     };
@@ -202,28 +208,44 @@ const getFinanceById = async (id) => {
   }
 };
 
-//달력 일정 호출
-const getCalendar = async () => {
+const deleteFinance = async (financeId) => {
   try {
-    const [rows] = await promisePool.query(
-      "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
-    );
-
-    const calendar = rows.map((row) => ({
-      id: row.id,
-      startDate: new Date(row.start),
-      endDate: new Date(row.end),
-      title: row.title,
-      content: row.content,
-    }));
-
-    console.log(calendar);
-    return calendar;
+    await promisePool.query("DELETE FROM Finance_Image WHERE Finance_ID = ?", [financeId]);
+    
+    // 결산안 삭제
+    const [result] = await promisePool.query("DELETE FROM Finance WHERE ID = ?", [financeId]);
+    
+    // 결과 반환: affectedRows가 1 이상이면 삭제 성공
+    return result.affectedRows > 0;
   } catch (error) {
-    console.error("Error fetching calendar:", error);
+    console.error("Error deleting finance:", error);
     throw error;
   }
 };
+
+
+// //달력 일정 호출
+// const getCalendar = async () => {
+//   try {
+//     const [rows] = await promisePool.query(
+//       "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
+//     );
+
+//     const calendar = rows.map((row) => ({
+//       id: row.id,
+//       startDate: new Date(row.start),
+//       endDate: new Date(row.end),
+//       title: row.title,
+//       content: row.content,
+//     }));
+
+//     console.log(calendar);
+//     return calendar;
+//   } catch (error) {
+//     console.error("Error fetching calendar:", error);
+//     throw error;
+//   }
+// };
 
 // 갤러리 게시물을 생성하는 함수
 const createGallery = async (title, content) => {
@@ -326,7 +348,7 @@ const saveGalleryImages = async (galleryid, files) => {
       await promisePool.query("INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)", [galleryid, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice img1:", error);
+    console.error("Error saving notice images:", error);
     throw error;
   }
 };
@@ -434,28 +456,37 @@ const saveFinanceImages = async (financeId, files) => {
       await promisePool.query("INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)", [financeId, imageUrl]);
     }
   } catch (error) {
-    console.error("Error saving notice img1:", error);
+    console.error("Error saving notice images:", error);
     throw error;
   }
 };
 
 module.exports = {
+  //notice
   getNotice,
   getNoticeById,
-  getFinance,
-  getFinanceById, // 추가된 함수
-  getCalendar,
   createNotice,
   updateNotice,
   deleteNotice,
-  createGallery, //지환: 갤러리 DB 함수
-  updateGallery,
-  deleteGallery,
+  saveNoticeImages,
+
+  getFinance,
+  getFinanceById,
+  createFinance,
+  saveFinanceImages,
+  deleteFinance,
+
+  getCalendar,
   createCalendar,
   updateCalendar,
   deleteCalendar,
-  saveNoticeImages,
+
+
+  createGallery,
+  updateGallery,
+  deleteGallery,
+
   saveGalleryImages,
-  createFinance,
-  saveFinanceImages
+
 };
+
