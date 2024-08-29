@@ -483,7 +483,7 @@ module.exports = {
   updateCalendar,
   deleteCalendar,
 
-
+  //gallery
   createGallery,
   updateGallery,
   deleteGallery,
