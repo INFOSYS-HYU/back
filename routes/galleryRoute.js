@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGallery, updateGallery, deleteGallery, getGallery } = require('../userDBC');
+const { createGallery, updateGallery, deleteGallery, getGallery, getGalleryById } = require('../userDBC');
 
 // 전체 갤러리 목록 (페이지네이션 적용)
 router.get('/:page', async (req, res) => {
@@ -11,6 +11,22 @@ router.get('/:page', async (req, res) => {
     res.json({ galleries, totalPages, currentPage: page });
   } catch (error) {
     console.error("Error fetching galleries:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get('/detail/:id', async (req, res) => {
+  const galleryID = parseInt(req.params.id, 10);
+
+  try {
+    const galleryData = await getGalleryById(galleryID);
+    if (galleryData) {
+      res.json(galleryData);
+    } else {
+      res.status(404).json({ error: "Gallery not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching gallery:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

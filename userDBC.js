@@ -502,6 +502,40 @@ const getGallery = async (page = 1, limit = 10) => {
   }
 };
 
+const getGalleryById = async(id) => {
+  try {
+    const [rows] = await promisePool.query(
+      "SELECT Gallery_ID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice WHERE Gallery_ID = ?",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return null; // 공지사항이 존재하지 않을 경우 null 반환
+    }
+
+    const gallery = rows[0];
+
+    // 공지사항에 연결된 이미지 URL 가져오기
+    const [imageRows] = await promisePool.query(
+      "SELECT ImageURL FROM Gallery_Image WHERE Gallery_ID = ?",
+      [id]
+    );
+
+    const imageUrls = imageRows.map(row => row.ImageURL); // 이미지 URL 배열 생성
+
+    return {
+      id: gallery.id,
+      title: gallery.title,
+      desc: gallery.content,
+      date: moment.tz(gallery.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+      images: imageUrls,
+    };
+  } catch (error) {
+    console.error("Error fetching notice by ID:", error);
+    throw error; // 에러를 호출자에게 전달
+  }
+};
+
 module.exports = {
   getNotice,
   getNoticeById,
@@ -522,4 +556,5 @@ module.exports = {
   createFinance,
   saveFinanceImages,
   getGallery,
+  getGalleryById,
 };
