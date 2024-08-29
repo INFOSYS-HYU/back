@@ -470,6 +470,7 @@ module.exports = {
   deleteNotice,
   saveNoticeImages,
 
+  //finance
   getFinance,
   getFinanceById,
   createFinance,
