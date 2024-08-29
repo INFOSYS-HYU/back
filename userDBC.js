@@ -477,6 +477,7 @@ module.exports = {
   saveFinanceImages,
   deleteFinance,
 
+  //calender
   getCalendar,
   createCalendar,
   updateCalendar,
