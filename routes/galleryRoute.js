@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGallery, updateGallery, deleteGallery } = require('../userDBC');
+const { createGallery, updateGallery, deleteGallery,getAllGallery } = require('../userDBC');
 
 router.post('/', async (req, res) => {
   const { title, upload_date, content, image_urls } = req.body;
@@ -59,5 +59,16 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: "갤러리 게시물 삭제 중 오류가 발생했습니다." });
   }
 });
+router.get("/", async (req, res) => {
+  try {
+    const { galleries } = await getAllGallery();
+    res.json(galleries);
+    console.log(galleries);
+  } catch (error) {
+    console.error("Error fetching recent galleries:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 
 module.exports = router;

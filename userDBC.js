@@ -16,6 +16,49 @@ const pool = mysql.createPool({
 
 const promisePool = pool.promise();
 
+const getAllGallery = async () => {
+  try {
+    // 전체 갤러리 목록을 가져옵니다.
+    const [rows] = await promisePool.query(
+      `SELECT Gallery_ID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Gallery 
+       ORDER BY Upload_DATE DESC;`
+    );
+
+    // 각 갤러리의 모든 이미지를 가져옵니다.
+    const galleries = await Promise.all(
+      rows.map(async (row) => {
+        const [imageResult] = await promisePool.query(
+          `SELECT ImageURL 
+           FROM Gallery_Image 
+           WHERE Gallery_ID = ? 
+           ORDER BY Upload_DATE ASC;`, // 모든 이미지 가져오기
+          [row.id]
+        );
+
+        // 모든 이미지 URL을 배열로 저장
+        const imageUrls = imageResult.map((image) => image.ImageURL);
+
+        return {
+          id: row.id,
+          title: row.title,
+          desc: row.content,
+          date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+          images: imageUrls, // 모든 이미지 URL 배열
+        };
+      })
+    );
+
+    console.log(galleries);
+    return {
+      galleries,
+    };
+  } catch (error) {
+    console.error("Error fetching galleries:", error);
+    throw error;
+  }
+};
+
 const createNotice = async (title, content) => {
   try {
     const [result] = await promisePool.query(
@@ -212,6 +255,24 @@ const getCalendar = async () => {
     return calendar;
   } catch (error) {
     console.error("Error fetching calendar:", error);
+    throw error;
+  }
+};
+// 갤러리 게시물을 생성하는 함수
+const getGallery = async (title, content) => {
+  try {
+    const [result] = await promisePool.query("SELECT Gallery_ID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Gallery;")
+    
+    const gallery = result.map((row) => ({
+      id: row.id,
+      date: new Date(row.date),
+      title: row.title,
+      content: row.content,
+    }));
+
+    return gallery;
+  } catch (error) {
+    console.error("Error creating Gallery:", error);
     throw error;
   }
 };
@@ -430,6 +491,7 @@ const saveFinanceImages = async (financeId, files) => {
   }
 };
 
+
 module.exports = {
   getNotice,
   getNoticeById,
@@ -445,8 +507,19 @@ module.exports = {
   createCalendar,
   updateCalendar,
   deleteCalendar,
+<<<<<<< Updated upstream
   saveNoticeImages,
   saveGalleryImages,
   createFinance,
   saveFinanceImages
+=======
+
+  //gallery
+  getGallery,
+  createGallery,
+  updateGallery,
+  deleteGallery,
+  getAllGallery,
+  saveGalleryImages,
+>>>>>>> Stashed changes
 };
