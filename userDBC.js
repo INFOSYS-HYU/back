@@ -181,7 +181,6 @@ const getFinance = async () => {
 };
 
 // 특정 결산안을 ID로 조회하는 함수
-// 특정 결산안을 ID로 조회하는 함수
 const getFinanceById = async (id) => {
   try {
     const [rows] = await promisePool.query(
@@ -224,28 +223,27 @@ const deleteFinance = async (financeId) => {
 };
 
 
-// //달력 일정 호출
-// const getCalendar = async () => {
-//   try {
-//     const [rows] = await promisePool.query(
-//       "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
-//     );
+const getCalendar = async () => {
+  try {
+    const [rows] = await promisePool.query(
+      "SELECT Calendar_ID AS id, startDate AS start, endDate AS end, title AS title, content AS content FROM Calendar;"
+    );
 
-//     const calendar = rows.map((row) => ({
-//       id: row.id,
-//       startDate: new Date(row.start),
-//       endDate: new Date(row.end),
-//       title: row.title,
-//       content: row.content,
-//     }));
+    const calendar = rows.map((row) => ({
+      id: row.id,
+      startDate: new Date(row.start),
+      endDate: new Date(row.end),
+      title: row.title,
+      content: row.content,
+    }));
 
-//     console.log(calendar);
-//     return calendar;
-//   } catch (error) {
-//     console.error("Error fetching calendar:", error);
-//     throw error;
-//   }
-// };
+    console.log(calendar);
+    return calendar;
+  } catch (error) {
+    console.error("Error fetching calendar:", error);
+    throw error;
+  }
+};
 
 // 갤러리 게시물을 생성하는 함수
 const createGallery = async (title, content) => {
