@@ -1,5 +1,5 @@
-
-
+const AWS = require('aws-sdk');
+const secretsManager = new AWS.SecretsManager();
 const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
@@ -17,6 +17,104 @@ const pool = mysql.createPool({
 });
 
 const promisePool = pool.promise();
+
+// 새로운 토큰 관리 함수들
+
+
+// Refresh Token 삭제 함수
+const deleteRefreshToken = async (userId) => {
+  try {
+    await pool.query('DELETE FROM RefreshToken WHERE userId = ?', [userId]);
+  } catch (error) {
+    console.error('Error deleting refresh token:', error);
+    throw error;
+  }
+};
+
+async function findOrCreateUser(profile) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM Users WHERE google_ID = ?",
+      [profile.google_ID]
+    );
+
+    if (rows.length > 0) {
+      // 사용자가 이미 존재하면 해당 사용자 정보 반환
+      return rows[0];
+    } else {
+      // 새 사용자 생성
+      const [result] = await pool.query(
+        "INSERT INTO Users (googleId, email, name) VALUES (?, ?, ?)",
+        [profile.google_ID, profile.email, profile.name]
+      );
+      
+      return {
+        id: result.insertId,
+        googleId: profile.google_ID,
+        email: profile.email,
+        name: profile.name
+      };
+    }
+  } catch (error) {
+    console.error("Error in findOrCreateUser:", error);
+    throw error;
+  }
+}
+
+async function findUserById(id) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM Users WHERE Stu_ID = ?",
+      [id]
+    );
+
+    if (rows.length > 0) {
+      return rows[0];
+    } else {
+      return null; // 사용자를 찾지 못한 경우
+    }
+  } catch (error) {
+    console.error("Error in findUserById:", error);
+    throw error;
+  }
+}
+
+async function storeRefreshToken(userId, refreshToken) {
+  const secretName = `refresh-token-${userId}`;
+  const params = {
+    SecretString: JSON.stringify({ refreshToken }),
+    Name: secretName,
+  };
+
+  try {
+    await secretsManager.createSecret(params).promise();
+    console.log("Refresh token stored securely");
+  } catch (err) {
+    if (err.code === 'ResourceExistsException') {
+      // 토큰 업데이트
+      await secretsManager.updateSecret({
+        SecretId: secretName,
+        SecretString: JSON.stringify({ refreshToken }),
+      }).promise();
+      console.log("Refresh token updated");
+    } else {
+      console.error("Error storing refresh token:", err);
+    }
+  }
+}
+
+async function getRefreshToken(userId) {
+  const secretName = `refresh-token-${userId}`;
+  try {
+    const data = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
+    const secretString = JSON.parse(data.SecretString);
+    return secretString.refreshToken;
+  } catch (err) {
+    console.error("Error retrieving refresh token:", err);
+    return null;
+  }
+}
+
 
 const createNotice = async (title, content) => {
   try {
@@ -487,6 +585,13 @@ module.exports = {
   deleteGallery,
 
   saveGalleryImages,
+
+  //login
+  storeRefreshToken,
+  deleteRefreshToken,
+  getRefreshToken,
+  findOrCreateUser,
+  findUserById,
 
 };
 
