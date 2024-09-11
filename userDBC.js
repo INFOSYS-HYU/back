@@ -62,11 +62,11 @@ async function findOrCreateUser(profile) {
   }
 }
 
-async function findUserById(id) {
+async function findUserById(googleId) {
   try {
     const [rows] = await promisePool.query(
       "SELECT * FROM User WHERE User_UID = ?",
-      [id]
+      [googleId]
     );
 
     if (rows.length > 0) {

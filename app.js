@@ -55,6 +55,12 @@ app.use("/api/finance", financeRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/gallery", authMiddleware, galleryRoutes);
 
+// Home route
+app.get('/', (req, res) => {
+  res.send('Home Page');
+});
+
+
 app.listen(3001, () => {
   console.log("Server is running on http://localhost:3001");
 });

@@ -24,18 +24,24 @@ passport.use(new GoogleStrategy({
 ));
 
 passport.serializeUser((user, done) => {
-  console.log("Serializing user:", user);
-  done(null, user.googleId);  
+  console.log("Serializing user:", user); // 로그 추가
+  done(null, user.User_UID);
 });
+
 
 passport.deserializeUser(async (googleId, done) => {
   try {
-    const user = await findUserById(googleId);  
+    const user = await findUserById(googleId);
+    if (!user) {
+      return done(new Error("User not found"));
+    }
+    console.log("Deserialized user:", user); // 로그 추가
     done(null, user);
   } catch (error) {
     done(error, null);
   }
 });
+
 
 
 module.exports = passport;

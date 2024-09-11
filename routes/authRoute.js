@@ -11,7 +11,11 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 router.get('/google/callback', 
   passport.authenticate('google', { failureRedirect: '/login' }),
   async (req, res) => {
-    console.log(req.header);
+    console.log("User object from Google callback:", req.user); // 추가된 로그
+    if (!req.user) {
+      return res.status(500).send("User authentication failed");
+    }
+
     const accessToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const refreshToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
     
@@ -19,17 +23,25 @@ router.get('/google/callback',
     await storeRefreshToken(req.user.User_UID, refreshToken);
 
     // Access 토큰은 클라이언트에 전송
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true }); // 쿠키에 저장
-    res.redirect(`/auth-success?token=${accessToken}`);
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: false }); // 쿠키에 저장
+    res.redirect(`/api/auth/auth-success?token=${accessToken}`);
   }
 );
 
 router.get('/auth-success', (req, res) => {
+  console.log('Received request for /auth-success');
   const { token } = req.query;
   
-  // 메인 페이지로 리디렉션하며 액세스 토큰을 쿼리 파라미터로 전달
-  res.redirect(`/?token=${token}`);
+  if (token) {
+    console.log('Redirecting to main page with token:', token);
+    const redirectUrl = `/?token=${token}`;
+    console.log('Redirect URL:', redirectUrl);
+    res.redirect(redirectUrl);
+  } else {
+    res.status(400).send('Token not found');
+  }
 });
+
 
 
 router.post('/logout', async (req, res) => {
