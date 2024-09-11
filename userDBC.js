@@ -24,7 +24,7 @@ const promisePool = pool.promise();
 // Refresh Token 삭제 함수
 const deleteRefreshToken = async (userId) => {
   try {
-    await pool.query('DELETE FROM RefreshToken WHERE userId = ?', [userId]);
+    await pool.query('DELETE FROM RefreshToken WHERE User_UID = ?', [userId]);
   } catch (error) {
     console.error('Error deleting refresh token:', error);
     throw error;
@@ -34,7 +34,7 @@ const deleteRefreshToken = async (userId) => {
 async function findOrCreateUser(profile) {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM Users WHERE google_ID = ?",
+      "SELECT * FROM Users WHERE User_UID = ?",
       [profile.google_ID]
     );
 
@@ -44,7 +44,7 @@ async function findOrCreateUser(profile) {
     } else {
       // 새 사용자 생성
       const [result] = await pool.query(
-        "INSERT INTO Users (googleId, email, name) VALUES (?, ?, ?)",
+        "INSERT INTO Users (User_UID, Email, Name) VALUES (?, ?, ?)",
         [profile.google_ID, profile.email, profile.name]
       );
       
@@ -64,7 +64,7 @@ async function findOrCreateUser(profile) {
 async function findUserById(id) {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM Users WHERE Stu_ID = ?",
+      "SELECT * FROM Users WHERE User_UID = ?",
       [id]
     );
 
@@ -80,40 +80,32 @@ async function findUserById(id) {
 }
 
 async function storeRefreshToken(userId, refreshToken) {
-  const secretName = `refresh-token-${userId}`;
-  const params = {
-    SecretString: JSON.stringify({ refreshToken }),
-    Name: secretName,
-  };
-
   try {
-    await secretsManager.createSecret(params).promise();
-    console.log("Refresh token stored securely");
-  } catch (err) {
-    if (err.code === 'ResourceExistsException') {
-      // 토큰 업데이트
-      await secretsManager.updateSecret({
-        SecretId: secretName,
-        SecretString: JSON.stringify({ refreshToken }),
-      }).promise();
-      console.log("Refresh token updated");
-    } else {
-      console.error("Error storing refresh token:", err);
-    }
+    await promisePool.query(
+      'INSERT INTO RefreshToken (User_UID, RefreshToken) VALUES (?, ?) ON DUPLICATE KEY UPDATE refreshToken = ?',
+      [userId, refreshToken, refreshToken]
+    );
+    console.log("Refresh token stored or updated in database");
+  } catch (error) {
+    console.error('Error storing refresh token in database:', error);
   }
 }
 
-async function getRefreshToken(userId) {
-  const secretName = `refresh-token-${userId}`;
+const getRefreshToken = async (userId) => {
   try {
-    const data = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
-    const secretString = JSON.parse(data.SecretString);
-    return secretString.refreshToken;
-  } catch (err) {
-    console.error("Error retrieving refresh token:", err);
+    const [rows] = await promisePool.query('SELECT RefreshToken FROM RefreshToken WHERE User_UID = ?', [userId]);
+    if (rows.length > 0) {
+      return rows[0].refreshToken;
+    } else {
+      console.log("No refresh token found for userId:", userId);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error retrieving refresh token from database:', error);
     return null;
   }
-}
+};
+
 
 
 const createNotice = async (title, content) => {
