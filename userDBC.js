@@ -35,7 +35,7 @@ async function findOrCreateUser(profile) {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM Users WHERE User_UID = ?",
-      [profile.google_ID]
+      [profile.id]
     );
 
     if (rows.length > 0) {
@@ -45,12 +45,12 @@ async function findOrCreateUser(profile) {
       // 새 사용자 생성
       const [result] = await pool.query(
         "INSERT INTO Users (User_UID, Email, Name) VALUES (?, ?, ?)",
-        [profile.google_ID, profile.email, profile.name]
+        [profile.id, profile.email, profile.name]
       );
       
       return {
         id: result.insertId,
-        googleId: profile.google_ID,
+        User_UID: profile.id,
         email: profile.email,
         name: profile.name
       };

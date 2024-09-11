@@ -12,11 +12,11 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   async (req, res) => {
     console.log(req.header);
-    const accessToken = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const refreshToken = jwt.sign({ id: req.user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+    const accessToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
     
     // Refresh 토큰 저장
-    await storeRefreshToken(req.user.id, refreshToken);
+    await storeRefreshToken(req.user.User_UID, refreshToken);
 
     // Access 토큰은 클라이언트에 전송
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true }); // 쿠키에 저장
