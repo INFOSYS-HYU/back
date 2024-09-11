@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const secretsManager = new AWS.SecretsManager();
-const mysql = require("mysql2");
+const mysql = require('mysql2');
 const moment = require("moment-timezone");
 require("dotenv").config();
 
@@ -24,7 +24,7 @@ const promisePool = pool.promise();
 // Refresh Token 삭제 함수
 const deleteRefreshToken = async (userId) => {
   try {
-    await pool.query('DELETE FROM RefreshToken WHERE User_UID = ?', [userId]);
+    await promisePool.query('DELETE FROM RefreshToken WHERE User_UID = ?', [userId]);
   } catch (error) {
     console.error('Error deleting refresh token:', error);
     throw error;
@@ -33,9 +33,10 @@ const deleteRefreshToken = async (userId) => {
 
 async function findOrCreateUser(profile) {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM Users WHERE User_UID = ?",
-      [profile.id]
+    console.log('프로필: ' ,profile)
+    const [rows] = await promisePool.query(
+      "SELECT * FROM User WHERE User_UID = ?",
+      [profile.googleId]
     );
 
     if (rows.length > 0) {
@@ -43,14 +44,14 @@ async function findOrCreateUser(profile) {
       return rows[0];
     } else {
       // 새 사용자 생성
-      const [result] = await pool.query(
-        "INSERT INTO Users (User_UID, Email, Name) VALUES (?, ?, ?)",
-        [profile.id, profile.email, profile.name]
+      const [result] = await promisePool.query(
+        "INSERT INTO User (User_UID, Email, Name) VALUES (?, ?, ?)",
+        [profile.googleId, profile.email, profile.name]
       );
       
       return {
         id: result.insertId,
-        User_UID: profile.id,
+        googleId: profile.googleId,
         email: profile.email,
         name: profile.name
       };
@@ -63,8 +64,8 @@ async function findOrCreateUser(profile) {
 
 async function findUserById(id) {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM Users WHERE User_UID = ?",
+    const [rows] = await promisePool.query(
+      "SELECT * FROM User WHERE User_UID = ?",
       [id]
     );
 
