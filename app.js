@@ -6,7 +6,7 @@ const multer = require("multer");
 const multerS3 = require("multer-s3");
 require("dotenv").config();
 
-const passport = require("./config/passport"); // passport 파일이 config 폴더에 있는 경우
+const passport = require("./config/passport");
 const session = require("express-session");
 const authMiddleware = require("./middleware/auth");
 const authRoutes = require("./routes/authRoute");
@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(
   session({
-    secret: "your-session-secret",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
   })
