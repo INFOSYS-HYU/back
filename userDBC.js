@@ -1,5 +1,5 @@
-
-
+const AWS = require('aws-sdk');
+const secretsManager = new AWS.SecretsManager();
 const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
@@ -17,6 +17,96 @@ const pool = mysql.createPool({
 });
 
 const promisePool = pool.promise();
+
+// 새로운 토큰 관리 함수들
+
+
+// Refresh Token 삭제 함수
+const deleteRefreshToken = async (userId) => {
+  try {
+    await pool.query('DELETE FROM RefreshToken WHERE User_UID = ?', [userId]);
+  } catch (error) {
+    console.error('Error deleting refresh token:', error);
+    throw error;
+  }
+};
+
+async function findOrCreateUser(profile) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM Users WHERE User_UID = ?",
+      [profile.google_ID]
+    );
+
+    if (rows.length > 0) {
+      // 사용자가 이미 존재하면 해당 사용자 정보 반환
+      return rows[0];
+    } else {
+      // 새 사용자 생성
+      const [result] = await pool.query(
+        "INSERT INTO Users (User_UID, Email, Name) VALUES (?, ?, ?)",
+        [profile.google_ID, profile.email, profile.name]
+      );
+      
+      return {
+        id: result.insertId,
+        googleId: profile.google_ID,
+        email: profile.email,
+        name: profile.name
+      };
+    }
+  } catch (error) {
+    console.error("Error in findOrCreateUser:", error);
+    throw error;
+  }
+}
+
+async function findUserById(id) {
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM Users WHERE User_UID = ?",
+      [id]
+    );
+
+    if (rows.length > 0) {
+      return rows[0];
+    } else {
+      return null; // 사용자를 찾지 못한 경우
+    }
+  } catch (error) {
+    console.error("Error in findUserById:", error);
+    throw error;
+  }
+}
+
+async function storeRefreshToken(userId, refreshToken) {
+  try {
+    await promisePool.query(
+      'INSERT INTO RefreshToken (User_UID, RefreshToken) VALUES (?, ?) ON DUPLICATE KEY UPDATE refreshToken = ?',
+      [userId, refreshToken, refreshToken]
+    );
+    console.log("Refresh token stored or updated in database");
+  } catch (error) {
+    console.error('Error storing refresh token in database:', error);
+  }
+}
+
+const getRefreshToken = async (userId) => {
+  try {
+    const [rows] = await promisePool.query('SELECT RefreshToken FROM RefreshToken WHERE User_UID = ?', [userId]);
+    if (rows.length > 0) {
+      return rows[0].refreshToken;
+    } else {
+      console.log("No refresh token found for userId:", userId);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error retrieving refresh token from database:', error);
+    return null;
+  }
+};
+
+
 
 const createNotice = async (title, content) => {
   try {
@@ -487,6 +577,13 @@ module.exports = {
   deleteGallery,
 
   saveGalleryImages,
+
+  //login
+  storeRefreshToken,
+  deleteRefreshToken,
+  getRefreshToken,
+  findOrCreateUser,
+  findUserById,
 
 };
 
