@@ -24,6 +24,13 @@ router.get('/google/callback',
   }
 );
 
+router.get('/auth-success', (req, res) => {
+  const { token } = req.query;
+  
+  // 메인 페이지로 리디렉션하며 액세스 토큰을 쿼리 파라미터로 전달
+  res.redirect(`/?token=${token}`);
+});
+
 
 router.post('/logout', async (req, res) => {
   const { refreshToken } = req.cookies;
