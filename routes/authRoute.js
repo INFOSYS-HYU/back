@@ -12,8 +12,8 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
   async (req, res) => {
     console.log(req.header);
-    const accessToken = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET | "secret", { expiresIn: '1h' });
-    const refreshToken = jwt.sign({ id: req.user.id }, process.env.JWT_REFRESH_SECRET | "secret", { expiresIn: '7d' });
+    const accessToken = jwt.sign({ id: req.user.id }, process.env.JWT_SECRET || "secret", { expiresIn: '1h' });
+    const refreshToken = jwt.sign({ id: req.user.id }, process.env.JWT_REFRESH_SECRET || "secret", { expiresIn: '7d' });
     // Refresh 토큰 저장
     await storeRefreshToken(req.user.id, refreshToken);
 
