@@ -9,13 +9,15 @@ passport.use(new GoogleStrategy({
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
+      console.log(profile)
       const user = await findOrCreateUser({
         googleId: profile.id,
         email: profile.emails[0].value,
-        
+        name: profile._json.name,
       });
       return done(null, user);
     } catch (error) {
+      console.log(error)
       return done(error, null);
     }
   }
