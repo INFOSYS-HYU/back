@@ -38,15 +38,6 @@ const s3 = new S3Client({
   },
 });
 
-const upload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: "infosysweb",
-    key: function (req, file, cb) {
-      cb(null, Date.now().toString());
-    },
-  }),
-});
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -58,5 +49,3 @@ app.use("/api/gallery", galleryRoutes);
 app.listen(3001, () => {
   console.log("Server is running on http://localhost:3001");
 });
-
-module.exports = { upload };
