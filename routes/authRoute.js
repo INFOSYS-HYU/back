@@ -44,6 +44,7 @@ router.post("/google/callback", async (req, res) => {
     //} else {
     //
     //}
+    await storeRefreshToken(userId,refresh_token)
     res.json({
       access_token,
       refresh_token,
