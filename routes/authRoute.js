@@ -1,98 +1,93 @@
-const express = require('express');
-const passport = require('passport');
-const jwt = require('jsonwebtoken');
+const express = require("express");
 const router = express.Router();
-const { storeRefreshToken, getRefreshToken, deleteRefreshToken } = require('../userDBC');
+const {
+  storeRefreshToken,
+  getRefreshToken,
+  deleteRefreshToken,
+  findOrCreateUser,
+} = require("../userDBC");
+const { OAuth2Client } = require("google-auth-library");
 
-// Google 로그인 라우트
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-// Google 로그인 콜백 라우트
-router.get('/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  async (req, res) => {
-    console.log("User object from Google callback:", req.user); // 추가된 로그
-    if (!req.user) {
-      return res.status(500).send("User authentication failed");
-    }
-
-    const accessToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const refreshToken = jwt.sign({ id: req.user.User_UID }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-    
-    // Refresh 토큰 저장
-    await storeRefreshToken(req.user.User_UID, refreshToken);
-
-    // Access 토큰은 클라이언트에 전송
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: false }); // 쿠키에 저장
-    res.redirect(`/api/auth/auth-success?token=${accessToken}`);
-  }
+const oAuth2Client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  "postmessage"
 );
 
-router.get('/auth-success', (req, res) => {
-  console.log('Received request for /auth-success');
-  const { token } = req.query;
-  
-  if (token) {
-    console.log('Redirecting to main page with token:', token);
-    const redirectUrl = `/?token=${token}`;
-    console.log('Redirect URL:', redirectUrl);
-    res.redirect(redirectUrl);
-  } else {
-    res.status(400).send('Token not found');
+router.post("/google/callback", async (req, res) => {
+  try {
+    const { code } = req.body;
+    const { tokens } = await oAuth2Client.getToken(code);
+
+    oAuth2Client.setCredentials(tokens);
+    console.log("code ", tokens);
+    const { access_token, refresh_token, id_token } = tokens;
+
+    const ticket = await oAuth2Client.verifyIdToken({
+      idToken: id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const userId = payload["sub"];
+
+    console.log(userId);
+    const { user } = await findOrCreateUser(
+      userId,
+      payload.email,
+      payload.name
+    );
+
+    //나중에 여기서 그 회원가입 로직 처리하자
+    //if (user){
+    //
+    //} else {
+    //
+    //}
+    res.json({
+      access_token,
+      refresh_token,
+      user_id: userId,
+      email: payload.email,
+      name: payload.name,
+    });
+  } catch (error) {
+    console.error("구글 로그인 실패", error);
+    res.status(500).send("Authentication failed");
   }
 });
 
-
-
-router.post('/logout', async (req, res) => {
-  const { refreshToken } = req.cookies;
-
-  if (refreshToken) {
-    try {
-      // Refresh Token 검증 및 사용자 ID 추출
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-      const userId = decoded.id;
-
-      // Refresh Token 삭제 (서버 측에서)
-      await deleteRefreshToken(userId);
-
-      // 쿠키에서 Refresh Token 삭제
-      res.clearCookie('refreshToken', { httpOnly: true, secure: true });
-
-      // 홈으로 리디렉션
-      res.redirect('/');
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to log out' });
-    }
-  } else {
-    res.status(400).json({ error: 'No refresh token found' });
-  }
-});
-
-
-// 토큰 갱신 라우트
-router.post('/refresh-token', async (req, res) => {
+router.post("/refresh-token", async (req, res) => {
   const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
-    return res.status(400).json({ error: 'Refresh token is required' });
+    return res.status(400).json({ error: "Refresh token is required" });
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const storedRefreshToken = await getRefreshToken(decoded.id);
+    const ticket = await oAuth2Client.verifyIdToken({
+      idToken: refreshToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-    if (refreshToken !== storedRefreshToken) {
-      return res.status(401).json({ error: 'Invalid refresh token' });
-    }
+    const payload = ticket.getPayload();
+    const userId = payload["sub"];
 
-    const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // TODO: 저장된 리프레시 토큰과 비교
+    // const storedRefreshToken = await getRefreshToken(userId);
+    // if (refreshToken !== storedRefreshToken) {
+    //   return res.status(401).json({ error: "Invalid refresh token" });
+    // }
+
+    const newAccessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
     res.json({ accessToken: newAccessToken });
   } catch (error) {
-    res.status(401).json({ error: 'Invalid refresh token' });
+    console.error("Refresh token 검증 실패", error);
+    res.status(401).json({ error: "Invalid refresh token" });
   }
 });
-
-
 
 module.exports = router;

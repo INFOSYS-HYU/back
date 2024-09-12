@@ -1,6 +1,6 @@
-const AWS = require('aws-sdk');
+const AWS = require("aws-sdk");
 const secretsManager = new AWS.SecretsManager();
-const mysql = require('mysql2');
+const mysql = require("mysql2");
 const moment = require("moment-timezone");
 require("dotenv").config();
 
@@ -20,23 +20,24 @@ const promisePool = pool.promise();
 
 // 새로운 토큰 관리 함수들
 
-
 // Refresh Token 삭제 함수
 const deleteRefreshToken = async (userId) => {
   try {
-    await promisePool.query('DELETE FROM RefreshToken WHERE User_UID = ?', [userId]);
+    await promisePool.query("DELETE FROM RefreshToken WHERE User_UID = ?", [
+      userId,
+    ]);
   } catch (error) {
-    console.error('Error deleting refresh token:', error);
+    console.error("Error deleting refresh token:", error);
     throw error;
   }
 };
 
-async function findOrCreateUser(profile) {
+async function findOrCreateUser(userId,email,name) {
   try {
-    console.log('프로필: ' ,profile)
+    console.log("프로필: ", userId);
     const [rows] = await promisePool.query(
       "SELECT * FROM User WHERE User_UID = ?",
-      [profile.googleId]
+      [userId]
     );
 
     if (rows.length > 0) {
@@ -46,14 +47,14 @@ async function findOrCreateUser(profile) {
       // 새 사용자 생성
       const [result] = await promisePool.query(
         "INSERT INTO User (User_UID, Email, Name) VALUES (?, ?, ?)",
-        [profile.googleId, profile.email, profile.name]
+        [userId, email, name]
       );
-      
+
       return {
         id: result.insertId,
-        googleId: profile.googleId,
-        email: profile.email,
-        name: profile.name
+        userId: userId,
+        email: email,
+        name: name,
       };
     }
   } catch (error) {
@@ -83,31 +84,32 @@ async function findUserById(googleId) {
 async function storeRefreshToken(userId, refreshToken) {
   try {
     await promisePool.query(
-      'INSERT INTO RefreshToken (User_UID, RefreshToken) VALUES (?, ?) ON DUPLICATE KEY UPDATE refreshToken = ?',
+      "INSERT INTO RefreshToken (User_UID, RefreshToken) VALUES (?, ?) ON DUPLICATE KEY UPDATE refreshToken = ?",
       [userId, refreshToken, refreshToken]
     );
     console.log("Refresh token stored or updated in database");
   } catch (error) {
-    console.error('Error storing refresh token in database:', error);
+    console.error("Error storing refresh token in database:", error);
   }
 }
 
 const getRefreshToken = async (userId) => {
   try {
-    const [rows] = await promisePool.query('SELECT RefreshToken FROM RefreshToken WHERE User_UID = ?', [userId]);
+    const [rows] = await promisePool.query(
+      "SELECT RefreshToken FROM RefreshToken WHERE User_UID = ?",
+      [userId]
+    );
     if (rows.length > 0) {
       return rows[0].refreshToken;
     } else {
       console.log("No refresh token found for userId:", userId);
-      return null;
+      return false;
     }
   } catch (error) {
-    console.error('Error retrieving refresh token from database:', error);
+    console.error("Error retrieving refresh token from database:", error);
     return null;
   }
 };
-
-
 
 const createNotice = async (title, content) => {
   try {
@@ -125,11 +127,14 @@ const createNotice = async (title, content) => {
 const saveNoticeImages = async (noticeId, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)", [noticeId, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Notice_Image (Notice_ID, ImageURL) VALUES (?, ?)",
+        [noticeId, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -169,7 +174,7 @@ const deleteNotice = async (id) => {
 const getNotice = async (page = 1, limit = 10) => {
   try {
     const offset = (page - 1) * limit;
-    
+
     // Get total count of notices
     const [countResult] = await promisePool.query(
       "SELECT COUNT(*) AS total FROM Notice;"
@@ -213,7 +218,6 @@ const getNotice = async (page = 1, limit = 10) => {
   }
 };
 
-
 // 특정 공지사항을 ID로 조회하는 함수
 const getNoticeById = async (id) => {
   try {
@@ -234,7 +238,7 @@ const getNoticeById = async (id) => {
       [id]
     );
 
-    const imageUrls = imageRows.map(row => row.ImageURL); // 이미지 URL 배열 생성
+    const imageUrls = imageRows.map((row) => row.ImageURL); // 이미지 URL 배열 생성
 
     return {
       id: notice.id,
@@ -300,11 +304,16 @@ const getFinanceById = async (id) => {
 
 const deleteFinance = async (financeId) => {
   try {
-    await promisePool.query("DELETE FROM Finance_Image WHERE Finance_ID = ?", [financeId]);
-    
+    await promisePool.query("DELETE FROM Finance_Image WHERE Finance_ID = ?", [
+      financeId,
+    ]);
+
     // 결산안 삭제
-    const [result] = await promisePool.query("DELETE FROM Finance WHERE ID = ?", [financeId]);
-    
+    const [result] = await promisePool.query(
+      "DELETE FROM Finance WHERE ID = ?",
+      [financeId]
+    );
+
     // 결과 반환: affectedRows가 1 이상이면 삭제 성공
     return result.affectedRows > 0;
   } catch (error) {
@@ -312,7 +321,6 @@ const deleteFinance = async (financeId) => {
     throw error;
   }
 };
-
 
 const getCalendar = async () => {
   try {
@@ -339,7 +347,10 @@ const getCalendar = async () => {
 // 갤러리 게시물을 생성하는 함수
 const createGallery = async (title, content) => {
   try {
-    const [result] = await promisePool.query("INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",[title, content]);
+    const [result] = await promisePool.query(
+      "INSERT INTO Gallery (Title, Content, Upload_DATE) VALUES (?, ?, NOW())",
+      [title, content]
+    );
     return { id: result.insertId, title, content };
   } catch (error) {
     console.error("Error creating Gallery:", error);
@@ -364,14 +375,13 @@ const updateGallery = async (galleryId, title, upload_date, content) => {
     }
 
     // Gallery_Image 테이블에서 기존 이미지 삭제
-    await connection.query(
-      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
-      [galleryId]
-    );
+    await connection.query("DELETE FROM Gallery_Image WHERE Gallery_ID = ?", [
+      galleryId,
+    ]);
 
     // Gallery_Image 테이블에 새로운 이미지 추가
     if (image_urls && image_urls.length > 0) {
-      const insertImagePromises = image_urls.map(imageUrl => {
+      const insertImagePromises = image_urls.map((imageUrl) => {
         return connection.query(
           "INSERT INTO Gallery_Image (ImageURL, Gallery_ID) VALUES (?, ?)",
           [imageUrl, galleryId]
@@ -400,10 +410,9 @@ const deleteGallery = async (galleryId) => {
     await connection.beginTransaction(); // 트랜잭션 시작
 
     // Gallery_Image 테이블에서 해당 게시물의 모든 이미지 삭제
-    await connection.query(
-      "DELETE FROM Gallery_Image WHERE Gallery_ID = ?",
-      [galleryId]
-    );
+    await connection.query("DELETE FROM Gallery_Image WHERE Gallery_ID = ?", [
+      galleryId,
+    ]);
 
     // Gallery 테이블에서 게시물 삭제
     const [result] = await connection.query(
@@ -430,11 +439,14 @@ const deleteGallery = async (galleryId) => {
 const saveGalleryImages = async (galleryid, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)", [galleryid, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Gallery_Image (Gallery_ID, ImageURL) VALUES (?, ?)",
+        [galleryid, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -538,11 +550,14 @@ const createFinance = async (title, content, quarter) => {
 const saveFinanceImages = async (financeId, files) => {
   try {
     // 이미지 정보를 데이터베이스에 저장
-    const imageUrls = files.map(file => file.location); // S3에서 업로드된 이미지 URL
+    const imageUrls = files.map((file) => file.location); // S3에서 업로드된 이미지 URL
 
     // 여러 이미지 정보를 삽입
     for (const imageUrl of imageUrls) {
-      await promisePool.query("INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)", [financeId, imageUrl]);
+      await promisePool.query(
+        "INSERT INTO Finance_Image (Finance_ID, ImageURL) VALUES (?, ?)",
+        [financeId, imageUrl]
+      );
     }
   } catch (error) {
     console.error("Error saving notice images:", error);
@@ -585,6 +600,4 @@ module.exports = {
   getRefreshToken,
   findOrCreateUser,
   findUserById,
-
 };
-
