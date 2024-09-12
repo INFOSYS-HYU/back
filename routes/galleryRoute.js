@@ -1,6 +1,46 @@
 const express = require('express');
 const router = express.Router();
-const { createGallery, updateGallery, deleteGallery } = require('../userDBC');
+const { getAllGallery, getGallery,getGalleryById, createGallery, updateGallery, deleteGallery } = require('../userDBC');
+
+router.get("/", async (req, res) => {
+  try {
+    const { galleries } = await getAllGallery();
+    res.json(galleries);
+    console.log(galleries);
+  } catch (error) {
+    console.error("Error fetching recent galleries:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// 전체 갤러리 목록 (페이지네이션 적용)
+router.get("/:page", async (req, res) => {
+  const page = parseInt(req.params.page, 10) || 1;
+  const limit = 10; // 페이지당 항목 수
+  try {
+    const { galleries, totalPages } = await getGallery(page, limit);
+    res.json({ galleries, totalPages, currentPage: page });
+  } catch (error) {
+    console.error("Error fetching galleries:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.get("/detail/:id", async (req, res) => {
+  const galleryID = parseInt(req.params.id, 10);
+
+  try {
+    const galleryData = await getGalleryById(galleryID);
+    if (galleryData) {
+      res.json(galleryData);
+    } else {
+      res.status(404).json({ error: "Gallery not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching gallery:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 router.post('/', async (req, res) => {
   const { title, upload_date, content, image_urls } = req.body;
@@ -59,5 +99,6 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: "갤러리 게시물 삭제 중 오류가 발생했습니다." });
   }
 });
+
 
 module.exports = router;

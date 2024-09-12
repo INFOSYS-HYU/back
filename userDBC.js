@@ -344,6 +344,147 @@ const getCalendar = async () => {
   }
 };
 
+const getAllGallery = async () => {
+  try {
+    // 전체 갤러리 목록을 가져옵니다.
+    const [rows] = await promisePool.query(
+      `SELECT Gallery_ID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Gallery 
+       ORDER BY Upload_DATE DESC;`
+    );
+
+    // 각 갤러리의 모든 이미지를 가져옵니다.
+    const galleries = await Promise.all(
+      rows.map(async (row) => {
+        const [imageResult] = await promisePool.query(
+          `SELECT ImageURL 
+           FROM Gallery_Image 
+           WHERE Gallery_ID = ? 
+           ORDER BY Upload_DATE ASC;`, // 모든 이미지 가져오기
+          [row.id]
+        );
+
+        // 모든 이미지 URL을 배열로 저장
+        const imageUrls = imageResult.map((image) => image.ImageURL);
+
+        return {
+          id: row.id,
+          title: row.title,
+          desc: row.content,
+          date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+          images: imageUrls, // 모든 이미지 URL 배열
+        };
+      })
+    );
+
+    console.log(galleries);
+    return {
+      galleries,
+    };
+  } catch (error) {
+    console.error("Error fetching galleries:", error);
+    throw error;
+  }
+};
+
+const getGalleryById = async (id) => {
+  try {
+    const [rows] = await promisePool.query(
+      "SELECT Gallery_ID AS id, Title AS title, Content AS content, Upload_DATE AS date FROM Notice WHERE Gallery_ID = ?",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return null; // 공지사항이 존재하지 않을 경우 null 반환
+    }
+
+    const gallery = rows[0];
+
+    // 공지사항에 연결된 이미지 URL 가져오기
+    const [imageRows] = await promisePool.query(
+      "SELECT ImageURL FROM Gallery_Image WHERE Gallery_ID = ?",
+      [id]
+    );
+
+    const imageUrls = imageRows.map((row) => row.ImageURL); // 이미지 URL 배열 생성
+
+    return {
+      id: gallery.id,
+      title: gallery.title,
+      desc: gallery.content,
+      date: moment.tz(gallery.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+      images: imageUrls,
+    };
+  } catch (error) {
+    console.error("Error fetching notice by ID:", error);
+    throw error; // 에러를 호출자에게 전달
+  }
+};
+
+const getGallery = async (page = 1, limit = 10) => {
+  try {
+    const offset = (page - 1) * limit;
+
+    // Get total count of notices
+    const [countResult] = await promisePool.query(
+      "SELECT COUNT(*) AS total FROM Gallery;"
+    );
+    const totalGalleries = countResult[0].total;
+
+    // Get paginated notices
+    const [rows] = await promisePool.query(
+      `SELECT GalleryID AS id, Title AS title, Content AS content, Upload_DATE AS date 
+       FROM Notice 
+       ORDER BY Upload_DATE DESC
+       LIMIT ? OFFSET ?;`,
+      [limit, offset]
+    );
+
+    const galleries = await Promise.all(
+      rows.map(async (row) => {
+        const [imageResult] = await promisePool.query(
+          `SELECT ImageURL 
+           FROM Gallery_Image 
+           WHERE Gallery_ID = ? 
+           ORDER BY Upload_DATE ASC 
+           LIMIT 1;`,
+          [row.id]
+        );
+
+        const firstImageUrl =
+          imageResult.length > 0 ? imageResult[0].ImageURL : null;
+
+        return {
+          id: row.id,
+          title: row.title,
+          desc: row.content,
+          date: moment.tz(row.date, "Asia/Seoul").format("YYYY-MM-DD HH:mm:ss"),
+          img1: firstImageUrl, // 첫 번째 이미지 URL
+        };
+      })
+    );
+
+    const totalPages = Math.ceil(totalNotices / limit);
+
+    console.log(galleries);
+    return {
+      galleries,
+      currentPage: page,
+      totalPages,
+      totalGalleries,
+    };
+  } catch (error) {
+    if (error.code === "ETIMEDOUT" && retries > 0) {
+      console.log(
+        `Connection timed out. Retrying... (${retries} attempts left)`
+      );
+      return getGallery(page, limit, retries - 1);
+    }
+    console.error("Error fetching notices:", error);
+    throw error;
+  }
+};
+
 // 갤러리 게시물을 생성하는 함수
 const createGallery = async (title, content) => {
   try {
@@ -591,8 +732,10 @@ module.exports = {
   createGallery,
   updateGallery,
   deleteGallery,
-
   saveGalleryImages,
+  getAllGallery,
+  getGallery,
+  getGalleryById,
 
   //login
   storeRefreshToken,
