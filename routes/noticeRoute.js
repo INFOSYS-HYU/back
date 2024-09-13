@@ -80,6 +80,7 @@ router.get('/detail/:id', async (req, res) => {
 //   }
 // });
 
+
 router.post('/', upload.array("img1", 10), async (req, res) => {
   const { title, content } = req.body;
   const files = req.files; // 업로드된 파일들
@@ -97,7 +98,6 @@ router.post('/', upload.array("img1", 10), async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 // 공지사항 수정
 router.put('/:id', async (req, res) => {
   const noticeId = parseInt(req.params.id, 10);
