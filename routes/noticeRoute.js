@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice } = require('../userDBC');
+const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice, saveNoticeImages } = require('../userDBC');
+const { S3Client } = require('@aws-sdk/client-s3');
+
 // const { uploadImg } = require('../app');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
