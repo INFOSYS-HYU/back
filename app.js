@@ -41,10 +41,10 @@ const s3 = new S3Client({
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/notice", authMiddleware, noticeRoutes);
-app.use("/api/finance", authMiddleware, financeRoutes);
-app.use("/api/calendar", authMiddleware, calendarRoutes);
-app.use("/api/gallery", authMiddleware, galleryRoutes);
+app.use("/api/notice", noticeRoutes);
+app.use("/api/finance", financeRoutes);
+app.use("/api/calendar", calendarRoutes);
+app.use("/api/gallery", galleryRoutes);
 
 app.listen(3001, () => {
   console.log("Server is running on http://localhost:3001");

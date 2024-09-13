@@ -1,7 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const { getNotice, getNoticeById, createNotice, updateNotice, deleteNotice } = require('../userDBC');
-const { uploadImg } = require('../app');
+// const { uploadImg } = require('../app');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+
+const s3 = new S3Client({
+  region: "ap-southeast-2",
+  credentials: {
+    accessKeyId: process.env.KeyId,
+    secretAccessKey: process.env.Secretkey,
+  },
+});
+
+const upload = multer({
+  storage: multerS3({
+    s3: s3,
+    bucket: 'infosysweb',
+    key: function (req, file, cb) {
+      cb(null, Date.now().toString());
+    },
+  }),
+});
 
 
 // 최신 공지사항 4개 조회
@@ -47,12 +67,30 @@ router.get('/detail/:id', async (req, res) => {
 });
 
 // 공지사항 생성
-router.post('/', async (req, res) => {
-  const upimg = await uploadImg;
-  console.log(upimg);
+// router.post('/', async (req, res) => {
+//   const upimg = await uploadImg;
+//   console.log(upimg);
+//   const { title, content } = req.body;
+//   try {
+//     const newNotice = await createNotice(title, content);
+//     res.status(201).json(newNotice);
+//   } catch (error) {
+//     console.error("Error creating notice:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+router.post('/', upload.array("img1", 10), async (req, res) => {
   const { title, content } = req.body;
+  const files = req.files; // 업로드된 파일들
+
   try {
     const newNotice = await createNotice(title, content);
+     // 공지사항에 관련된 파일 정보 저장
+    if (files.length > 0) {
+      await saveNoticeImages(newNotice.id, files);
+    }
+
     res.status(201).json(newNotice);
   } catch (error) {
     console.error("Error creating notice:", error);
